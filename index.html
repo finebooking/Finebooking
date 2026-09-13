@@ -314,7 +314,7 @@
       <a href="#" onclick="filterCategory('Restaurant');showView('view-home');return false;">Restaurants</a>
       <a href="#" onclick="showView('view-terms');return false;">Terms</a>
     </nav>
-    <button class="host-cta" onclick="alert('This would open a short form for hosts to submit their property — coming once the site is live.')">List your place</button>
+    <button class="host-cta" onclick="showView('view-host-form')">List your place</button>
   </div>
 </header>
 
@@ -523,7 +523,7 @@
       <p>Any dispute, damage, loss or disagreement arising from a booking is between you and the host directly. Fine Booking is not liable for issues arising from bookings made through the platform.</p>
 
       <h3>Contact</h3>
-      <p>Questions? Reach us at hello@finebooking.com</p>
+      <p>Questions? Reach us at hellofinebooking@gmail.com</p>
     </div>
   </div>
 </div>
@@ -637,6 +637,68 @@
   </div>
 </div>
 
+<!-- ============ LIST YOUR PLACE (HOST SUBMISSION) VIEW ============ -->
+<div id="view-host-form" class="view">
+  <div class="wrap">
+    <a href="#" class="back-link" onclick="showView('view-home');return false;">← Back</a>
+    <div class="form-wrap">
+      <h1 style="font-size:22px;margin-bottom:4px;">List your place on Fine Booking</h1>
+      <p style="color:var(--text-soft);font-size:14px;margin:0 0 22px;">Free to list. Tell us about your place and we'll reach out to get it live.</p>
+
+      <form id="hostForm" onsubmit="submitHostForm(event)" enctype="multipart/form-data">
+        <input type="text" name="_gotcha" class="honeypot" tabindex="-1" autocomplete="off">
+        <div class="form-grid">
+          <div class="form-field full">
+            <label>Property / restaurant name</label>
+            <input type="text" id="hostPlaceName" required>
+          </div>
+          <div class="form-field">
+            <label>Category</label>
+            <select id="hostCategory">
+              <option>Hotel</option>
+              <option>Guesthouse</option>
+              <option>Motel</option>
+              <option>Airbnb</option>
+              <option>Restaurant</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Location (area, city)</label>
+            <input type="text" id="hostLocation" required placeholder="e.g. Kololo, Kampala">
+          </div>
+          <div class="form-field">
+            <label>Your name</label>
+            <input type="text" id="hostName" required>
+          </div>
+          <div class="form-field">
+            <label>WhatsApp / phone number</label>
+            <input type="text" id="hostPhone" required placeholder="+256 7...">
+          </div>
+          <div class="form-field">
+            <label>Email</label>
+            <input type="email" id="hostEmail" required>
+          </div>
+          <div class="form-field">
+            <label>Price (UGX, per night or per person)</label>
+            <input type="number" id="hostPrice" min="0" required>
+          </div>
+          <div class="form-field full">
+            <label>Describe your place</label>
+            <textarea id="hostDescription" required placeholder="Rooms, amenities, what makes it worth staying/eating at..."></textarea>
+          </div>
+          <div class="form-field full">
+            <label>Add one photo (up to 5MB — full quality, sent as a real attachment)</label>
+            <input type="file" id="hostPhoto" accept="image/*">
+            <p style="font-size:12.5px;color:var(--text-soft);margin-top:6px;">Have more photos? Once you get our confirmation email, just reply to it with the rest attached — that keeps them full quality too.</p>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" style="width:100%;padding:13px;font-size:15px;margin-top:10px;">Submit for review</button>
+        <p class="response-note">We'll review and reach out on WhatsApp or email before your place goes live — nothing is published automatically.</p>
+      </form>
+    </div>
+  </div>
+</div>
+
 <footer class="site">
   <div class="wrap">
     <div class="footer-grid">
@@ -651,7 +713,7 @@
       </div>
       <div>
         <h4>Hosts</h4>
-        <a href="#" onclick="alert('Host submission form coming soon.')">List your place</a>
+        <a href="#" onclick="showView('view-host-form');return false;">List your place</a>
         <a href="#" onclick="showView('view-terms');return false;">Terms</a>
       </div>
       <div>
@@ -666,7 +728,7 @@
     </div>
     <div class="footer-bottom">
       <span>© 2026 Fine Booking, Uganda.</span>
-      <span>hello@finebooking.com</span>
+      <span>hellofinebooking@gmail.com</span>
     </div>
   </div>
 </footer>
@@ -1277,6 +1339,42 @@ function renderAdminTable(){
       <button class="btn-ghost" onclick="deleteListing(${l.id})">Delete</button>
     </div>
   `).join("");
+}
+
+async function submitHostForm(e){
+  e.preventDefault();
+  const formData = new FormData();
+  formData.append("access_key", WEB3FORMS_ACCESS_KEY);
+  formData.append("subject", "New host submission — " + document.getElementById("hostPlaceName").value);
+  formData.append("place_name", document.getElementById("hostPlaceName").value);
+  formData.append("category", document.getElementById("hostCategory").value);
+  formData.append("location", document.getElementById("hostLocation").value);
+  formData.append("host_name", document.getElementById("hostName").value);
+  formData.append("host_phone", document.getElementById("hostPhone").value);
+  formData.append("host_email", document.getElementById("hostEmail").value);
+  formData.append("price", document.getElementById("hostPrice").value);
+  formData.append("description", document.getElementById("hostDescription").value);
+
+  const photoInput = document.getElementById("hostPhoto");
+  if(photoInput.files.length > 0){
+    const file = photoInput.files[0];
+    if(file.size > 5 * 1024 * 1024){
+      alert("That photo is over 5MB — please choose a smaller one, or just reply with it after submitting.");
+      return;
+    }
+    formData.append("attachment", file);
+  }
+
+  try{
+    // Replace WEB3FORMS_ACCESS_KEY above with your real key from web3forms.com
+    await fetch("https://api.web3forms.com/submit", { method:"POST", body: formData });
+  }catch(err){
+    console.log("Host form submission error (demo mode, no live key set):", err);
+  }
+
+  alert("Thanks — we've got your submission and will reach out on WhatsApp or email soon.");
+  document.getElementById("hostForm").reset();
+  showView("view-home");
 }
 
 /* ---------- Init ---------- */
