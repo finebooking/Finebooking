@@ -15,6 +15,10 @@
   gtag('js', new Date());
   gtag('config', 'G-XXXXXXX');
 </script>
+
+<!-- Firebase — replace firebaseConfig further down (search FIREBASE_CONFIG) with your own project's config from console.firebase.google.com -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --bg:#FFFFFF;
@@ -543,6 +547,46 @@
     </div>
 
     <div id="adminPanel" style="display:none;">
+
+      <div class="section-title">
+        <h2>Bulk import places (from OpenStreetMap)</h2>
+        <span></span>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:10px;">
+        <p style="font-size:13.5px;color:var(--text-soft);margin:0 0 14px;">Pull in real places by name and location only — no photos or prices, since that data isn't ours to copy. These land as "quick add" listings you can edit later as you contact each one.</p>
+
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Area to search</label>
+            <input type="text" id="bulkArea" placeholder="e.g. Kololo, Kampala">
+          </div>
+          <div class="form-field">
+            <label>Radius</label>
+            <select id="bulkRadius">
+              <option value="2000">2 km</option>
+              <option value="5000" selected>5 km</option>
+              <option value="10000">10 km</option>
+              <option value="20000">20 km</option>
+            </select>
+          </div>
+          <div class="form-field full">
+            <label>Categories to pull in</label>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:4px;">
+              <label style="display:flex;align-items:center;gap:6px;font-weight:500;font-size:13.5px;"><input type="checkbox" id="bulkHotel" checked style="width:auto;"> Hotels</label>
+              <label style="display:flex;align-items:center;gap:6px;font-weight:500;font-size:13.5px;"><input type="checkbox" id="bulkGuesthouse" checked style="width:auto;"> Guesthouses</label>
+              <label style="display:flex;align-items:center;gap:6px;font-weight:500;font-size:13.5px;"><input type="checkbox" id="bulkMotel" checked style="width:auto;"> Motels</label>
+              <label style="display:flex;align-items:center;gap:6px;font-weight:500;font-size:13.5px;"><input type="checkbox" id="bulkRestaurant" checked style="width:auto;"> Restaurants</label>
+            </div>
+            <p style="font-size:12px;color:var(--text-soft);margin-top:6px;">Airbnbs aren't included — short-term rentals aren't tagged distinctly in this open map data, so those still need to be added one by one.</p>
+          </div>
+        </div>
+
+        <button type="button" class="btn-primary" onclick="bulkSearchPlaces()">Search this area</button>
+
+        <div id="bulkResults" style="margin-top:16px;"></div>
+        <p style="font-size:11.5px;color:var(--text-soft);margin-top:14px;">Place data © OpenStreetMap contributors, available under the Open Database Licence.</p>
+      </div>
+
       <div class="section-title">
         <h2 id="adminFormTitle">Add a new listing</h2>
         <span></span>
@@ -550,6 +594,14 @@
 
       <form id="adminForm" onsubmit="saveListingFromAdmin(event)" class="form-wrap" style="max-width:720px;margin:0;">
         <input type="hidden" id="adminEditId">
+
+        <div style="background:var(--bg-soft);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:18px;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;">
+            <input type="checkbox" id="admQuickAdd" style="width:auto;" onchange="toggleQuickAdd()"> Quick add — location only, no price/photos yet
+          </label>
+          <p style="font-size:12.8px;color:var(--text-soft);margin:6px 0 0;">Use this for places you've found on the map but haven't contacted yet. Guests can still see them and get directions — just no booking form until you upgrade it with real details.</p>
+        </div>
+
         <div class="form-grid">
           <div class="form-field full">
             <label>Property / restaurant name</label>
@@ -564,6 +616,14 @@
               <option>Airbnb</option>
               <option>Restaurant</option>
             </select>
+          </div>
+          <div class="form-field full">
+            <label>Find location (search a place name or address — this fills the map coordinates below automatically)</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="admGeoSearch" placeholder="e.g. Kololo, Kampala or the property name" style="flex:1;">
+              <button type="button" class="btn-ghost" onclick="searchGeocode()">Find on map</button>
+            </div>
+            <div id="geoResults" style="margin-top:8px;"></div>
           </div>
           <div class="form-field">
             <label>Location (area, city)</label>
@@ -582,7 +642,7 @@
             <input type="text" id="admLat" placeholder="0.3400" required>
           </div>
           <div class="form-field">
-            <label>Longitude</label>
+            <label>Longitude <span style="font-weight:400;color:var(--text-soft);">(auto-filled by search above, or enter manually)</span></label>
             <input type="text" id="admLng" placeholder="32.5900" required>
           </div>
           <div class="form-field full">
@@ -596,6 +656,11 @@
           <div class="form-field full">
             <label>Amenities (comma-separated)</label>
             <input type="text" id="admAmenities" placeholder="Free WiFi, Hot water, Parking">
+          </div>
+          <div class="form-field full">
+            <label>Room types (optional — for places with more than one room/price, one per line: Name | Price | Capacity | Image URL)</label>
+            <textarea id="admRooms" placeholder="Garden View Room | 150000 | 2 | https://...&#10;Family Suite | 230000 | 4 | https://..."></textarea>
+            <p style="font-size:12.5px;color:var(--text-soft);margin-top:6px;">Leave blank if this place has one single price — the Price field above will be used instead.</p>
           </div>
           <div class="form-field">
             <label style="display:flex;align-items:center;gap:8px;font-weight:500;">
@@ -757,6 +822,37 @@
 
 const WEB3FORMS_ACCESS_KEY = "YOUR_WEB3FORMS_ACCESS_KEY";
 
+/* ============================================================
+   FIREBASE (shared, live database)
+   ------------------------------------------------------------
+   Replace the values below with your own project's config —
+   get this from console.firebase.google.com after creating a
+   project and turning on "Firestore Database".
+   Until you do, the site quietly falls back to saving listings
+   only in this browser (the old behaviour) so nothing breaks.
+============================================================ */
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+let db = null;
+let firebaseReady = false;
+try{
+  if(FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY" && typeof firebase !== "undefined"){
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    firebaseReady = true;
+  }
+}catch(err){
+  console.log("Firebase not connected yet — using this browser's storage only.", err);
+  firebaseReady = false;
+}
+
 const defaultListings = [
   {
     id:1, name:"Kololo Garden Suites", category:"Airbnb", location:"Kololo, Kampala",
@@ -764,6 +860,10 @@ const defaultListings = [
     images:["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800","https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800","https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800"],
     description:"A quiet two-bedroom apartment with a private garden, ten minutes from the city centre. Popular with business travellers who want space to actually breathe.",
     amenities:["Free WiFi","Backup generator","Private parking","Hot water","Kitchen"],
+    rooms:[
+      {id:"r1", name:"Garden View Room", price:150000, capacity:2, image:"https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800"},
+      {id:"r2", name:"Family Suite", price:230000, capacity:4, image:"https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800"}
+    ],
     verified:true, hasOwnSystem:false, ownerEmail:"host1@example.com"
   },
   {
@@ -830,7 +930,7 @@ const partners = [
 ];
 
 let locations = [...new Set(defaultListings.map(l => l.location))];
-let listings = defaultListings.concat(getCustomListings());
+let listings = defaultListings.slice(); // refreshAllListings() below fills this in properly (local or Firestore)
 
 let state = {category:"all", locationFilter:"", maxPrice:400000};
 let currentListingId = null;
@@ -867,22 +967,31 @@ function toggleSave(id, btn, event){
   if(btn) btn.classList.toggle("saved");
 }
 
+function listingMinPrice(l){
+  if(l.rooms && l.rooms.length > 0){
+    return Math.min(...l.rooms.map(r => r.price));
+  }
+  return l.price;
+}
+
 function cardHTML(l){
   const saved = getSaved().includes(l.id);
+  const hasRooms = l.rooms && l.rooms.length > 0;
+  const priceLabel = l.basic ? "Contact for details" : (hasRooms ? "From " + formatUGX(listingMinPrice(l)) : formatUGX(l.price));
   return `
     <div class="card" onclick="openListing(${l.id})">
       <div class="card-img">
         <img src="${l.images[0]}" alt="${l.name}" loading="lazy">
-        ${l.guestFavorite ? '<span class="badge">Guest favorite</span>' : (l.verified ? '<span class="badge">Verified</span>' : '')}
+        ${l.basic ? '<span class="badge">Location only</span>' : (l.guestFavorite ? '<span class="badge">Guest favorite</span>' : (l.verified ? '<span class="badge">Verified</span>' : ''))}
         <button class="save-btn ${saved ? 'saved' : ''}" onclick="toggleSave(${l.id}, this, event)">${saved ? '♥' : '♡'}</button>
       </div>
       <div class="card-body">
         <div class="card-top-row">
           <div class="card-name">${l.name}</div>
-          <div class="card-rating">★ ${l.rating.toFixed(2)}</div>
+          ${l.basic ? '' : `<div class="card-rating">★ ${l.rating.toFixed(2)}</div>`}
         </div>
-        <div class="card-loc">${l.location}</div>
-        <div class="card-price-line"><b>${formatUGX(l.price)}</b> <span>${l.category === "Restaurant" ? "avg / person" : "/ night"}</span></div>
+        <div class="card-loc">${l.location}${hasRooms ? ' · ' + l.rooms.length + ' room types' : ''}</div>
+        <div class="card-price-line"><b>${priceLabel}</b> ${l.basic ? '' : `<span>${l.category === "Restaurant" ? "avg / person" : "/ night"}</span>`}</div>
       </div>
     </div>`;
 }
@@ -1032,9 +1141,12 @@ function useMyLocation(){
 }
 
 /* ---------- Listing detail ---------- */
+let selectedRoomId = null;
+
 function openListing(id){
   const l = listings.find(x => x.id === id);
   currentListingId = id;
+  selectedRoomId = (l.rooms && l.rooms.length > 0) ? l.rooms[0].id : null;
   const el = document.getElementById("listingDetailContent");
 
   el.innerHTML = `
@@ -1060,6 +1172,12 @@ function openListing(id){
           <p>${l.description}</p>
         </div>
 
+        ${ (l.rooms && l.rooms.length > 0) ? `
+        <div class="detail-section">
+          <h3>Room types</h3>
+          <div id="roomTypeList">${roomTypeListHTML(l)}</div>
+        </div>` : ``}
+
         <div class="detail-section">
           <h3>Amenities</h3>
           <div class="amenity-grid">
@@ -1079,14 +1197,8 @@ function openListing(id){
       </div>
 
       <div>
-        <div class="booking-box">
-          <div class="price-line">${formatUGX(l.price)} <span>/ ${l.category === "Restaurant" ? "person" : "night"}</span></div>
-          ${ l.hasOwnSystem
-            ? `<button class="btn-primary" style="width:100%;padding:12px;" onclick="window.open('${l.externalBookingUrl}','_blank')">Book on their site</button>
-               <p class="response-note">This host uses their own booking and payment system — you'll complete everything there.</p>`
-            : `<button class="btn-primary" style="width:100%;padding:12px;" onclick="startBooking(${l.id})">Request to book</button>
-               <p class="response-note">Free to request. Nothing is charged, and it's not confirmed until we check with the host.</p>`
-          }
+        <div class="booking-box" id="bookingBox">
+          ${bookingBoxHTML(l)}
         </div>
       </div>
     </div>
@@ -1094,12 +1206,59 @@ function openListing(id){
   showView("view-listing");
 }
 
+function roomTypeListHTML(l){
+  return l.rooms.map(r => `
+    <div onclick="selectRoom(${l.id}, '${r.id}')" style="display:flex;gap:12px;align-items:center;border:1px solid ${selectedRoomId === r.id ? 'var(--accent)' : 'var(--border)'};border-radius:12px;padding:10px;margin-bottom:10px;cursor:pointer;">
+      <img src="${r.image || l.images[0]}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+      <div style="flex:1;">
+        <div style="font-weight:600;font-size:14.5px;">${r.name}</div>
+        <div style="font-size:12.8px;color:var(--text-soft);">Fits ${r.capacity} guests</div>
+      </div>
+      <div style="font-weight:600;font-size:14px;white-space:nowrap;">${formatUGX(r.price)}</div>
+    </div>
+  `).join("");
+}
+
+function selectRoom(listingId, roomId){
+  selectedRoomId = roomId;
+  const l = listings.find(x => x.id === listingId);
+  document.getElementById("roomTypeList").innerHTML = roomTypeListHTML(l);
+  document.getElementById("bookingBox").innerHTML = bookingBoxHTML(l);
+}
+
+function bookingBoxHTML(l){
+  if(l.basic){
+    const waNumber = "256753469605";
+    const waMsg = encodeURIComponent("Hi, I'm interested in " + l.name + " (" + l.location + ") on Fine Booking.");
+    return `
+      <div class="price-line" style="font-size:16px;">Details coming soon</div>
+      <a class="btn-primary" style="display:block;text-align:center;width:100%;padding:12px;box-sizing:border-box;" target="_blank" href="https://wa.me/${waNumber}?text=${waMsg}">Enquire on WhatsApp</a>
+      <p class="response-note">We haven't confirmed pricing or photos for this place yet — message us and we'll follow up.</p>`;
+  }
+  const room = (l.rooms && l.rooms.length > 0) ? l.rooms.find(r => r.id === selectedRoomId) : null;
+  const price = room ? room.price : l.price;
+  const priceNote = room ? ` <span style="font-weight:400;color:var(--text-soft);">(${room.name})</span>` : "";
+  if(l.hasOwnSystem){
+    return `
+      <div class="price-line">${formatUGX(price)}${priceNote} <span>/ ${l.category === "Restaurant" ? "person" : "night"}</span></div>
+      <button class="btn-primary" style="width:100%;padding:12px;" onclick="window.open('${l.externalBookingUrl}','_blank')">Book on their site</button>
+      <p class="response-note">This host uses their own booking and payment system — you'll complete everything there.</p>`;
+  }
+  return `
+    <div class="price-line">${formatUGX(price)}${priceNote} <span>/ ${l.category === "Restaurant" ? "person" : "night"}</span></div>
+    <button class="btn-primary" style="width:100%;padding:12px;" onclick="startBooking(${l.id})">Request to book</button>
+    <p class="response-note">Free to request. Nothing is charged, and it's not confirmed until we check with the host.</p>`;
+}
+
 /* ---------- Booking form ---------- */
+let currentBookingRoom = null;
+
 function startBooking(id){
   const l = listings.find(x => x.id === id);
   currentListingId = id;
-  document.getElementById("listingIdField").value = l.name;
-  document.getElementById("bookingSubtitle").textContent = l.name + " — " + l.location;
+  currentBookingRoom = (l.rooms && l.rooms.length > 0) ? l.rooms.find(r => r.id === selectedRoomId) : null;
+  document.getElementById("listingIdField").value = l.name + (currentBookingRoom ? " — " + currentBookingRoom.name : "");
+  document.getElementById("bookingSubtitle").textContent = l.name + (currentBookingRoom ? " — " + currentBookingRoom.name : "") + " · " + l.location;
   document.getElementById("bookingBackLink").onclick = () => { openListing(id); return false; };
   document.getElementById("bookingForm").reset();
   updateEstimate();
@@ -1115,11 +1274,12 @@ function nightsBetween(inDate, outDate){
 function updateEstimate(){
   const l = listings.find(x => x.id === currentListingId);
   if(!l) return;
+  const unitPrice = currentBookingRoom ? currentBookingRoom.price : l.price;
   const checkIn = document.getElementById("checkIn").value;
   const checkOut = document.getElementById("checkOut").value;
-  const rooms = Number(document.getElementById("roomCount").value || 1);
+  const roomCount = Number(document.getElementById("roomCount").value || 1);
   const nights = nightsBetween(checkIn, checkOut);
-  const total = nights * rooms * l.price;
+  const total = nights * roomCount * unitPrice;
 
   const box = document.getElementById("summaryBox");
   if(nights <= 0){
@@ -1128,8 +1288,9 @@ function updateEstimate(){
   }
   box.innerHTML = `
     <div><span>${l.name}</span><b>${l.location}</b></div>
+    ${currentBookingRoom ? `<div><span>Room type</span><b>${currentBookingRoom.name}</b></div>` : ``}
     <div><span>Nights</span><b>${nights}</b></div>
-    <div><span>Rooms</span><b>${rooms}</b></div>
+    <div><span>Rooms</span><b>${roomCount}</b></div>
     <div><span>Estimated total</span><b>${formatUGX(total)}</b></div>
   `;
 }
@@ -1180,24 +1341,83 @@ async function submitBooking(e){
 const ADMIN_PASSWORD = "finebooking2026"; // change this before sharing the file with anyone
 let adminUnlocked = false;
 
-function getCustomListings(){
-  try{ return JSON.parse(localStorage.getItem("fb_custom_listings") || "[]"); }catch(e){ return []; }
-}
-function saveCustomListings(arr){
-  localStorage.setItem("fb_custom_listings", JSON.stringify(arr));
-}
-function getOverrides(){
-  try{ return JSON.parse(localStorage.getItem("fb_listing_overrides") || "{}"); }catch(e){ return {}; }
-}
-function saveOverrides(obj){
-  localStorage.setItem("fb_listing_overrides", JSON.stringify(obj));
-}
 function isDefaultId(id){
   return defaultListings.some(l => l.id === id);
 }
-function refreshAllListings(){
-  const custom = getCustomListings();
-  const overrides = getOverrides();
+
+/* --- Data layer: Firestore when connected, this browser's storage otherwise --- */
+async function fetchCustomListings(){
+  if(firebaseReady){
+    try{
+      const snap = await db.collection("listings").get();
+      return snap.docs.map(d => d.data());
+    }catch(err){ console.log("Firestore read failed, using local storage instead.", err); }
+  }
+  try{ return JSON.parse(localStorage.getItem("fb_custom_listings") || "[]"); }catch(e){ return []; }
+}
+
+async function fetchOverrides(){
+  if(firebaseReady){
+    try{
+      const doc = await db.collection("meta").doc("overrides").get();
+      return doc.exists ? doc.data() : {};
+    }catch(err){ console.log("Firestore read failed, using local storage instead.", err); }
+  }
+  try{ return JSON.parse(localStorage.getItem("fb_listing_overrides") || "{}"); }catch(e){ return {}; }
+}
+
+async function persistListing(listing){
+  if(firebaseReady){
+    try{ await db.collection("listings").doc(String(listing.id)).set(listing); return; }
+    catch(err){ console.log("Firestore write failed, saving locally instead.", err); }
+  }
+  const custom = await fetchLocalCustomListings();
+  const idx = custom.findIndex(l => l.id === listing.id);
+  if(idx >= 0) custom[idx] = listing; else custom.push(listing);
+  localStorage.setItem("fb_custom_listings", JSON.stringify(custom));
+}
+
+async function persistManyListings(arr){
+  if(firebaseReady){
+    try{
+      const batch = db.batch();
+      arr.forEach(l => batch.set(db.collection("listings").doc(String(l.id)), l));
+      await batch.commit();
+      return;
+    }catch(err){ console.log("Firestore batch write failed, saving locally instead.", err); }
+  }
+  const custom = await fetchLocalCustomListings();
+  localStorage.setItem("fb_custom_listings", JSON.stringify(custom.concat(arr)));
+}
+
+async function removeListing(id){
+  if(firebaseReady){
+    try{ await db.collection("listings").doc(String(id)).delete(); return; }
+    catch(err){ console.log("Firestore delete failed, updating locally instead.", err); }
+  }
+  const custom = await fetchLocalCustomListings();
+  localStorage.setItem("fb_custom_listings", JSON.stringify(custom.filter(l => l.id !== id)));
+}
+
+async function persistOverride(id, fields){
+  if(firebaseReady){
+    try{ await db.collection("meta").doc("overrides").set({ [id]: fields }, { merge: true }); return; }
+    catch(err){ console.log("Firestore write failed, saving locally instead.", err); }
+  }
+  const overrides = await fetchLocalOverrides();
+  overrides[id] = fields;
+  localStorage.setItem("fb_listing_overrides", JSON.stringify(overrides));
+}
+
+function fetchLocalCustomListings(){
+  try{ return JSON.parse(localStorage.getItem("fb_custom_listings") || "[]"); }catch(e){ return []; }
+}
+function fetchLocalOverrides(){
+  try{ return JSON.parse(localStorage.getItem("fb_listing_overrides") || "{}"); }catch(e){ return {}; }
+}
+
+async function refreshAllListings(){
+  const [custom, overrides] = await Promise.all([fetchCustomListings(), fetchOverrides()]);
   const defaultsApplied = defaultListings
     .map(l => overrides[l.id] ? {...l, ...overrides[l.id]} : l)
     .filter(l => !(overrides[l.id] && overrides[l.id].hidden));
@@ -1227,6 +1447,167 @@ function checkAdminPassword(){
   }
 }
 
+let bulkSearchResults = [];
+
+async function bulkSearchPlaces(){
+  const area = document.getElementById("bulkArea").value.trim();
+  const radius = document.getElementById("bulkRadius").value;
+  const resultsBox = document.getElementById("bulkResults");
+
+  const wantHotel = document.getElementById("bulkHotel").checked;
+  const wantGuesthouse = document.getElementById("bulkGuesthouse").checked;
+  const wantMotel = document.getElementById("bulkMotel").checked;
+  const wantRestaurant = document.getElementById("bulkRestaurant").checked;
+
+  if(!area){ alert("Type an area to search first."); return; }
+  if(!wantHotel && !wantGuesthouse && !wantMotel && !wantRestaurant){ alert("Pick at least one category."); return; }
+
+  resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Locating ' + area + '...</p>';
+
+  try{
+    // Step 1: geocode the area to a center point (free, OpenStreetMap Nominatim)
+    const geoRes = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ug&q=" + encodeURIComponent(area), { headers: { "Accept-Language": "en" } });
+    const geoData = await geoRes.json();
+    if(!geoData || geoData.length === 0){
+      resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Couldn\'t find that area — try a more specific name.</p>';
+      return;
+    }
+    const centerLat = geoData[0].lat, centerLng = geoData[0].lon;
+
+    resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Searching nearby places...</p>';
+
+    // Step 2: query Overpass for real places tagged in this area (free, open data)
+    const tagParts = [];
+    if(wantHotel) tagParts.push(`node["tourism"="hotel"](around:${radius},${centerLat},${centerLng});`);
+    if(wantGuesthouse) tagParts.push(`node["tourism"="guest_house"](around:${radius},${centerLat},${centerLng});`);
+    if(wantMotel) tagParts.push(`node["tourism"="motel"](around:${radius},${centerLat},${centerLng});`);
+    if(wantRestaurant) tagParts.push(`node["amenity"="restaurant"](around:${radius},${centerLat},${centerLng});`);
+
+    const query = `[out:json][timeout:25];(${tagParts.join("")});out body;`;
+    const overpassRes = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST", body: "data=" + encodeURIComponent(query)
+    });
+    const overpassData = await overpassRes.json();
+
+    const named = (overpassData.elements || []).filter(el => el.tags && el.tags.name);
+    if(named.length === 0){
+      resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">No named places found in that radius — try widening it or a nearby area.</p>';
+      return;
+    }
+
+    bulkSearchResults = named.map(el => {
+      let category = "Hotel";
+      if(el.tags.tourism === "guest_house") category = "Guesthouse";
+      else if(el.tags.tourism === "motel") category = "Motel";
+      else if(el.tags.amenity === "restaurant") category = "Restaurant";
+      return { name: el.tags.name, category, lat: el.lat, lng: el.lon, location: area };
+    });
+
+    resultsBox.innerHTML = `
+      <p style="font-size:13.5px;font-weight:600;margin-bottom:8px;">${bulkSearchResults.length} places found</p>
+      <div style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:8px;">
+        ${bulkSearchResults.map((r,i) => `
+          <label style="display:flex;align-items:center;gap:10px;padding:7px 6px;font-size:13.5px;border-bottom:1px solid var(--border);">
+            <input type="checkbox" class="bulkPick" data-i="${i}" checked style="width:auto;">
+            <span style="flex:1;">${r.name}</span>
+            <span style="color:var(--text-soft);font-size:12.5px;">${r.category}</span>
+          </label>
+        `).join("")}
+      </div>
+      <button type="button" class="btn-primary" style="margin-top:12px;" onclick="bulkAddSelected()">Add selected to site</button>
+    `;
+  }catch(err){
+    resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Search failed — check your internet connection and try again.</p>';
+    console.log("Bulk import error:", err);
+  }
+}
+
+async function bulkAddSelected(){
+  const checked = Array.from(document.querySelectorAll(".bulkPick:checked")).map(cb => bulkSearchResults[Number(cb.dataset.i)]);
+  if(checked.length === 0){ alert("Nothing selected."); return; }
+
+  const existingNames = new Set(listings.map(l => l.name.toLowerCase()));
+  const toAdd = [];
+  let added = 0;
+
+  checked.forEach((r, idx) => {
+    if(existingNames.has(r.name.toLowerCase())) return; // skip obvious duplicates
+    toAdd.push({
+      id: Date.now() + idx,
+      name: r.name,
+      category: r.category,
+      location: r.location,
+      price: null,
+      capacity: 2,
+      lat: r.lat,
+      lng: r.lng,
+      rating: 4.8,
+      basic: true,
+      guestFavorite: false,
+      verified: false,
+      description: "Details coming soon — contact us to enquire.",
+      images: ["https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800"],
+      amenities: [],
+      hasOwnSystem: false,
+      ownerEmail: "",
+      externalBookingUrl: ""
+    });
+    added++;
+  });
+
+  await persistManyListings(toAdd);
+  await refreshAllListings();
+  renderAdminTable();
+  alert(added + " places added — visible on this browser now. Skipped any exact name duplicates.");
+  document.getElementById("bulkResults").innerHTML = "";
+}
+async function searchGeocode(){
+  const query = document.getElementById("admGeoSearch").value.trim();
+  const resultsBox = document.getElementById("geoResults");
+  if(!query){ resultsBox.innerHTML = ""; return; }
+
+  resultsBox.innerHTML = '<p style="font-size:13px;color:var(--text-soft);">Searching...</p>';
+
+  try{
+    // Free geocoding via OpenStreetMap's Nominatim — no API key needed.
+    // Biased toward Uganda, but will still return results elsewhere if nothing local matches.
+    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=ug&q=" + encodeURIComponent(query);
+    const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+    const data = await res.json();
+
+    if(!data || data.length === 0){
+      resultsBox.innerHTML = '<p style="font-size:13px;color:var(--text-soft);">No matches found — try a broader search, or enter coordinates manually below.</p>';
+      return;
+    }
+
+    resultsBox.innerHTML = data.map((r, i) => `
+      <div onclick='selectGeoResult(${r.lat}, ${r.lon}, ${JSON.stringify(r.display_name)})'
+           style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:13.5px;">
+        ${r.display_name}
+      </div>
+    `).join("");
+  }catch(err){
+    resultsBox.innerHTML = '<p style="font-size:13px;color:var(--text-soft);">Search failed — check your internet connection, or enter coordinates manually below.</p>';
+    console.log("Geocode error:", err);
+  }
+}
+
+function selectGeoResult(lat, lng, displayName){
+  document.getElementById("admLat").value = lat;
+  document.getElementById("admLng").value = lng;
+  if(!document.getElementById("admLocation").value){
+    document.getElementById("admLocation").value = displayName.split(",").slice(0,2).join(",").trim();
+  }
+  document.getElementById("geoResults").innerHTML = '<p style="font-size:13px;color:var(--accent-dark);">✓ Location set</p>';
+}
+
+function toggleQuickAdd(){
+  const quick = document.getElementById("admQuickAdd").checked;
+  ["admPrice","admDescription","admImages"].forEach(id => {
+    document.getElementById(id).required = !quick;
+  });
+}
+
 function toggleAdminBookingFields(){
   const hasOwn = document.getElementById("admHasOwnSystem").checked;
   document.getElementById("admOwnerEmailField").style.display = hasOwn ? "none" : "block";
@@ -1238,50 +1619,53 @@ function resetAdminForm(){
   document.getElementById("adminEditId").value = "";
   document.getElementById("adminFormTitle").textContent = "Add a new listing";
   toggleAdminBookingFields();
+  toggleQuickAdd();
 }
 
-function saveListingFromAdmin(e){
+async function saveListingFromAdmin(e){
   e.preventDefault();
   const editId = document.getElementById("adminEditId").value;
   const hasOwn = document.getElementById("admHasOwnSystem").checked;
+  const isQuick = document.getElementById("admQuickAdd").checked;
+  const PLACEHOLDER_IMG = "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800";
 
   const listing = {
     id: editId ? Number(editId) : Date.now(),
     name: document.getElementById("admName").value,
     category: document.getElementById("admCategory").value,
     location: document.getElementById("admLocation").value,
-    price: Number(document.getElementById("admPrice").value),
+    price: document.getElementById("admPrice").value ? Number(document.getElementById("admPrice").value) : null,
     capacity: Number(document.getElementById("admCapacity").value || 1),
     lat: Number(document.getElementById("admLat").value),
     lng: Number(document.getElementById("admLng").value),
     rating: 4.8,
+    basic: isQuick,
     guestFavorite: document.getElementById("admGuestFavorite").checked,
     verified: document.getElementById("admVerified").checked,
-    description: document.getElementById("admDescription").value,
-    images: document.getElementById("admImages").value.split("\n").map(s => s.trim()).filter(Boolean),
+    description: document.getElementById("admDescription").value || "Details coming soon — contact us to enquire.",
+    images: document.getElementById("admImages").value.split("\n").map(s => s.trim()).filter(Boolean).length
+      ? document.getElementById("admImages").value.split("\n").map(s => s.trim()).filter(Boolean)
+      : [PLACEHOLDER_IMG],
     amenities: document.getElementById("admAmenities").value.split(",").map(s => s.trim()).filter(Boolean),
+    rooms: document.getElementById("admRooms").value.split("\n").map(s => s.trim()).filter(Boolean).map((line, i) => {
+      const parts = line.split("|").map(p => p.trim());
+      return { id: "r" + (i+1), name: parts[0] || "Room", price: Number(parts[1]) || 0, capacity: Number(parts[2]) || 2, image: parts[3] || "" };
+    }),
     hasOwnSystem: hasOwn,
     ownerEmail: hasOwn ? "" : document.getElementById("admOwnerEmail").value,
     externalBookingUrl: hasOwn ? document.getElementById("admExternalUrl").value : ""
   };
 
-  let custom = getCustomListings();
   if(editId && isDefaultId(Number(editId))){
-    const overrides = getOverrides();
     const { id: _drop, ...fields } = listing;
-    overrides[Number(editId)] = fields;
-    saveOverrides(overrides);
-  } else if(editId){
-    custom = custom.map(l => l.id === Number(editId) ? listing : l);
-    saveCustomListings(custom);
+    await persistOverride(Number(editId), fields);
   } else {
-    custom.push(listing);
-    saveCustomListings(custom);
+    await persistListing(listing);
   }
-  refreshAllListings();
+  await refreshAllListings();
   resetAdminForm();
   renderAdminTable();
-  alert("Saved — visible on this browser now.");
+  alert("Saved — " + (firebaseReady ? "live for everyone now." : "visible on this browser for now (connect Firebase to make it live for everyone)."));
 }
 
 function editListing(id){
@@ -1292,33 +1676,34 @@ function editListing(id){
   document.getElementById("admName").value = l.name;
   document.getElementById("admCategory").value = l.category;
   document.getElementById("admLocation").value = l.location;
-  document.getElementById("admPrice").value = l.price;
+  document.getElementById("admPrice").value = l.price || "";
   document.getElementById("admCapacity").value = l.capacity;
   document.getElementById("admLat").value = l.lat;
   document.getElementById("admLng").value = l.lng;
   document.getElementById("admDescription").value = l.description;
   document.getElementById("admImages").value = l.images.join("\n");
   document.getElementById("admAmenities").value = l.amenities.join(", ");
+  document.getElementById("admRooms").value = (l.rooms || []).map(r => [r.name, r.price, r.capacity, r.image || ""].join(" | ")).join("\n");
   document.getElementById("admVerified").checked = l.verified;
   document.getElementById("admGuestFavorite").checked = l.guestFavorite;
   document.getElementById("admHasOwnSystem").checked = l.hasOwnSystem;
   document.getElementById("admOwnerEmail").value = l.ownerEmail || "";
   document.getElementById("admExternalUrl").value = l.externalBookingUrl || "";
+  document.getElementById("admQuickAdd").checked = !!l.basic;
+  toggleQuickAdd();
   toggleAdminBookingFields();
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
-function deleteListing(id){
+async function deleteListing(id){
   if(!confirm("Delete this listing? This can't be undone.")) return;
   if(isDefaultId(id)){
-    const overrides = getOverrides();
-    overrides[id] = {...(overrides[id]||{}), hidden:true};
-    saveOverrides(overrides);
+    const overrides = await fetchOverrides();
+    await persistOverride(id, {...(overrides[id]||{}), hidden:true});
   } else {
-    const custom = getCustomListings().filter(l => l.id !== id);
-    saveCustomListings(custom);
+    await removeListing(id);
   }
-  refreshAllListings();
+  await refreshAllListings();
   renderAdminTable();
 }
 
@@ -1333,7 +1718,7 @@ function renderAdminTable(){
       <img src="${l.images[0] || ''}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:var(--bg-soft);">
       <div style="flex:1;">
         <div style="font-weight:600;font-size:14.5px;">${l.name} ${isDefaultId(l.id) ? '<span style="font-weight:400;color:var(--text-soft);font-size:12px;">(sample)</span>' : ''}</div>
-        <div style="font-size:13px;color:var(--text-soft);">${l.category} · ${l.location} · ${formatUGX(l.price)}</div>
+        <div style="font-size:13px;color:var(--text-soft);">${l.category} · ${l.location} · ${l.price != null ? formatUGX(l.price) : "No price yet"}</div>
       </div>
       <button class="btn-ghost" onclick="editListing(${l.id})">Edit</button>
       <button class="btn-ghost" onclick="deleteListing(${l.id})">Delete</button>
