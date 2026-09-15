@@ -1531,7 +1531,7 @@ async function bulkSearchPlaces(){
           </label>
         `).join("")}
       </div>
-      <button type="button" class="btn-primary" style="margin-top:12px;" onclick="bulkAddSelected()">Add selected to site</button>
+      <button type="button" id="bulkAddBtn" class="btn-primary" style="margin-top:12px;" onclick="bulkAddSelected()">Add selected to site</button>
     `;
   }catch(err){
     resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">The map data service didn\'t respond in time — this is usually the free service being busy, not your connection. Wait a moment and tap Search again.</p>';
@@ -1542,6 +1542,11 @@ async function bulkSearchPlaces(){
 async function bulkAddSelected(){
   const checked = Array.from(document.querySelectorAll(".bulkPick:checked")).map(cb => bulkSearchResults[Number(cb.dataset.i)]);
   if(checked.length === 0){ alert("Nothing selected."); return; }
+
+  const btn = document.getElementById("bulkAddBtn");
+  const originalText = btn.textContent;
+  btn.textContent = "Adding...";
+  btn.disabled = true;
 
   const existingNames = new Set(listings.map(l => l.name.toLowerCase()));
   const toAdd = [];
@@ -1572,10 +1577,18 @@ async function bulkAddSelected(){
     added++;
   });
 
-  await persistManyListings(toAdd);
-  await refreshAllListings();
-  renderAdminTable();
-  alert(added + " places added — visible on this browser now. Skipped any exact name duplicates.");
+  try{
+    await persistManyListings(toAdd);
+    await refreshAllListings();
+    renderAdminTable();
+    alert(added + " places added — " + (firebaseReady ? "live for everyone now." : "visible on this browser for now (connect Firebase to make it live for everyone).") + " Skipped any exact name duplicates.");
+  }catch(err){
+    alert("Something went wrong adding these — check your connection and try again.");
+    console.log("bulkAddSelected error:", err);
+  }finally{
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
   document.getElementById("bulkResults").innerHTML = "";
 }
 async function searchGeocode(){
