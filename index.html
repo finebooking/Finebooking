@@ -1,67 +1,4 @@
 <!DOCTYPE html>
-<script type="module">
-
-
-  // Import the functions you need from the SDKs you need
-
-
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-
-
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js";
-
-
-  // TODO: Add SDKs for Firebase products that you want to use
-
-
-  // https://firebase.google.com/docs/web/setup#available-libraries
-
-
-
-  // Your web app's Firebase configuration
-
-
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-
-
-  const firebaseConfig = {
-
-
-    apiKey: "AIzaSyD01ng33Y5ASX1v7uhMDPN8qW6rxPqXIgk",
-
-
-    authDomain: "hellofinebooking-b6be2.firebaseapp.com",
-
-
-    projectId: "hellofinebooking-b6be2",
-
-
-    storageBucket: "hellofinebooking-b6be2.firebasestorage.app",
-
-
-    messagingSenderId: "1045074877373",
-
-
-    appId: "1:1045074877373:web:6c0b65f80f26091f3590d4",
-
-
-    measurementId: "G-GJRD272XXH"
-
-
-  };
-
-
-
-  // Initialize Firebase
-
-
-  const app = initializeApp(firebaseConfig);
-
-
-  const analytics = getAnalytics(app);
-
-
-</script>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -70,13 +7,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&family=Pacifico&display=swap" rel="stylesheet">
 
-<!-- Google Analytics (GA4) — replace G-XXXXXXX with your real Measurement ID from analytics.google.com -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX"></script>
+<!-- Google Analytics (GA4) / Firebase Analytics — same measurement ID powers both -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-GJRD272XXH"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-  gtag('config', 'G-XXXXXXX');
+  gtag('config', 'G-GJRD272XXH');
 </script>
 
 <!-- Firebase — replace firebaseConfig further down (search FIREBASE_CONFIG) with your own project's config from console.firebase.google.com -->
@@ -895,12 +832,12 @@ const WEB3FORMS_ACCESS_KEY = "YOUR_WEB3FORMS_ACCESS_KEY";
    only in this browser (the old behaviour) so nothing breaks.
 ============================================================ */
 const FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyD01ng33Y5ASX1v7uhMDPN8qW6rxPqXIgk",
+  authDomain: "hellofinebooking-b6be2.firebaseapp.com",
+  projectId: "hellofinebooking-b6be2",
+  storageBucket: "hellofinebooking-b6be2.firebasestorage.app",
+  messagingSenderId: "1045074877373",
+  appId: "1:1045074877373:web:6c0b65f80f26091f3590d4"
 };
 
 let db = null;
@@ -1251,7 +1188,7 @@ function openListing(id){
         <div class="detail-section">
           <h3>Location</h3>
           <div class="map-embed">
-            <iframe loading="lazy" src="https://www.google.com/maps?q=${l.lat},${l.lng}&z=14&output=embed"></iframe>
+            <iframe loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=${l.lng-0.01}%2C${l.lat-0.006}%2C${l.lng+0.01}%2C${l.lat+0.006}&layer=mapnik&marker=${l.lat}%2C${l.lng}"></iframe>
           </div>
           <div class="directions-row">
             <a class="btn-ghost" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}">Get directions</a>
@@ -1512,6 +1449,25 @@ function checkAdminPassword(){
 
 let bulkSearchResults = [];
 
+async function fetchOverpass(query){
+  const servers = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter"
+  ];
+  let lastErr = null;
+  for(const server of servers){
+    try{
+      const res = await fetch(server, { method: "POST", body: "data=" + encodeURIComponent(query) });
+      if(!res.ok) throw new Error("Server responded " + res.status);
+      return await res.json();
+    }catch(err){
+      lastErr = err;
+      console.log("Overpass server failed (" + server + "):", err);
+    }
+  }
+  throw lastErr;
+}
+
 async function bulkSearchPlaces(){
   const area = document.getElementById("bulkArea").value.trim();
   const radius = document.getElementById("bulkRadius").value;
@@ -1530,6 +1486,7 @@ async function bulkSearchPlaces(){
   try{
     // Step 1: geocode the area to a center point (free, OpenStreetMap Nominatim)
     const geoRes = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ug&q=" + encodeURIComponent(area), { headers: { "Accept-Language": "en" } });
+    if(!geoRes.ok) throw new Error("Location lookup failed (" + geoRes.status + ")");
     const geoData = await geoRes.json();
     if(!geoData || geoData.length === 0){
       resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Couldn\'t find that area — try a more specific name.</p>';
@@ -1537,7 +1494,7 @@ async function bulkSearchPlaces(){
     }
     const centerLat = geoData[0].lat, centerLng = geoData[0].lon;
 
-    resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Searching nearby places...</p>';
+    resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Searching nearby places... (this can take a few seconds)</p>';
 
     // Step 2: query Overpass for real places tagged in this area (free, open data)
     const tagParts = [];
@@ -1547,10 +1504,7 @@ async function bulkSearchPlaces(){
     if(wantRestaurant) tagParts.push(`node["amenity"="restaurant"](around:${radius},${centerLat},${centerLng});`);
 
     const query = `[out:json][timeout:25];(${tagParts.join("")});out body;`;
-    const overpassRes = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST", body: "data=" + encodeURIComponent(query)
-    });
-    const overpassData = await overpassRes.json();
+    const overpassData = await fetchOverpass(query);
 
     const named = (overpassData.elements || []).filter(el => el.tags && el.tags.name);
     if(named.length === 0){
@@ -1580,7 +1534,7 @@ async function bulkSearchPlaces(){
       <button type="button" class="btn-primary" style="margin-top:12px;" onclick="bulkAddSelected()">Add selected to site</button>
     `;
   }catch(err){
-    resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Search failed — check your internet connection and try again.</p>';
+    resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">The map data service didn\'t respond in time — this is usually the free service being busy, not your connection. Wait a moment and tap Search again.</p>';
     console.log("Bulk import error:", err);
   }
 }
