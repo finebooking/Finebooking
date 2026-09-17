@@ -829,7 +829,7 @@
 </footer>
 
 <nav class="bottom-nav">
-  <button class="nav-item active" id="navExplore" onclick="showView('view-home')">
+  <button class="nav-item active" id="navExplore" onclick="goHome()">
     <span class="ic">⌕</span> Explore
   </button>
   <button class="nav-item" id="navSaved" onclick="showSaved()">
@@ -1092,6 +1092,22 @@ function showSaved(){
     : '<div class="no-results">Nothing saved yet — tap the heart on any listing to keep it here.</div>';
   document.getElementById("resultsCount").textContent = "";
   showView("view-home");
+  document.querySelectorAll(".bottom-nav .nav-item").forEach(b => b.classList.remove("active"));
+  document.getElementById("navSaved").classList.add("active");
+}
+
+function goHome(){
+  state.category = "all";
+  state.locationFilter = "";
+  state.sortByDistance = false;
+  document.getElementById("locationInput").value = "";
+  document.getElementById("resultsTitle").textContent = "All stays";
+  document.getElementById("searchPillLabel").textContent = "Start your search";
+  document.querySelectorAll(".icon-tab").forEach(c => c.classList.toggle("active", c.dataset.cat === "all"));
+  renderListings();
+  showView("view-home");
+  document.querySelectorAll(".bottom-nav .nav-item").forEach(b => b.classList.remove("active"));
+  document.getElementById("navExplore").classList.add("active");
 }
 
 function renderPartners(){
