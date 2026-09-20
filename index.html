@@ -554,7 +554,7 @@
       <p>Any dispute, damage, loss or disagreement arising from a booking is between you and the host directly. Fine Booking is not liable for issues arising from bookings made through the platform.</p>
 
       <h3>Contact</h3>
-      <p>Questions? Reach us at hellofinebooking@gmail.com</p>
+      <p>Questions? Reach us at hellofinebooking@gmail.com or WhatsApp +256 702 737295</p>
     </div>
   </div>
 </div>
@@ -818,12 +818,14 @@
       <div>
         <h4>Follow</h4>
         <a href="#">TikTok</a>
+        <a href="#">Instagram</a>
+        <a href="#">X</a>
         <a href="#">YouTube</a>
       </div>
     </div>
     <div class="footer-bottom">
       <span>© 2026 Fine Booking, Uganda.</span>
-      <span>hellofinebooking@gmail.com</span>
+      <span>hellofinebooking@gmail.com · WhatsApp +256 702 737295</span>
     </div>
   </div>
 </footer>
@@ -1056,6 +1058,12 @@ function renderCuratedRows(){
 }
 
 function renderListings(){
+  const filterKey = JSON.stringify({c:state.category, l:state.locationFilter, p:state.maxPrice, d:state.sortByDistance});
+  if(filterKey !== state.lastFilterKey){
+    state.visibleCount = PAGE_SIZE;
+    state.lastFilterKey = filterKey;
+  }
+
   let items = listings.filter(l => {
     const catOk = state.category === "all" || l.category === state.category;
     const locOk = !state.locationFilter || l.location.toLowerCase().includes(state.locationFilter.toLowerCase());
@@ -1075,10 +1083,26 @@ function renderListings(){
   if(items.length === 0){
     grid.innerHTML = '<div class="no-results">Nothing matches that yet — try widening the price range or clearing the location.</div>';
   } else {
-    grid.innerHTML = items.map(cardHTML).join("");
+    const visible = items.slice(0, state.visibleCount || PAGE_SIZE);
+    grid.innerHTML = visible.map(cardHTML).join("");
+    if(items.length > visible.length){
+      grid.insertAdjacentHTML("afterend", `
+        <div id="loadMoreWrap" style="text-align:center;margin-top:24px;">
+          <button class="btn-ghost" onclick="loadMoreListings()">Show more places (${items.length - visible.length} more)</button>
+        </div>
+      `);
+    }
   }
 
   renderCuratedRows();
+}
+
+const PAGE_SIZE = 20;
+function loadMoreListings(){
+  state.visibleCount = (state.visibleCount || PAGE_SIZE) + PAGE_SIZE;
+  const wrap = document.getElementById("loadMoreWrap");
+  if(wrap) wrap.remove();
+  renderListings();
 }
 
 function showSaved(){
@@ -1281,7 +1305,7 @@ function selectRoom(listingId, roomId){
 
 function bookingBoxHTML(l){
   if(l.basic){
-    const waNumber = "256753469605";
+    const waNumber = "256702737295";
     const waMsg = encodeURIComponent("Hi, I'm interested in " + l.name + " (" + l.location + ") on Fine Booking.");
     return `
       <div class="price-line" style="font-size:16px;">Details coming soon</div>
@@ -1601,16 +1625,24 @@ async function bulkSearchPlaces(){
       return;
     }
 
-    bulkSearchResults = named.map(el => {
+    const existingNames = new Set(listings.map(l => l.name.toLowerCase()));
+    const allFound = named.map(el => {
       let category = "Hotel";
       if(el.tags.tourism === "guest_house") category = "Guesthouse";
       else if(el.tags.tourism === "motel") category = "Motel";
       else if(el.tags.amenity === "restaurant") category = "Restaurant";
       return { name: el.tags.name, category, lat: el.lat, lng: el.lon, location: area };
     });
+    bulkSearchResults = allFound.filter(r => !existingNames.has(r.name.toLowerCase()));
+    const skippedCount = allFound.length - bulkSearchResults.length;
+
+    if(bulkSearchResults.length === 0){
+      resultsBox.innerHTML = `<p style="font-size:13.5px;color:var(--text-soft);">Found ${allFound.length} places, but all of them are already on your site.</p>`;
+      return;
+    }
 
     resultsBox.innerHTML = `
-      <p style="font-size:13.5px;font-weight:600;margin-bottom:8px;">${bulkSearchResults.length} places found</p>
+      <p style="font-size:13.5px;font-weight:600;margin-bottom:8px;">${bulkSearchResults.length} new places found${skippedCount > 0 ? ` (${skippedCount} already on your site, hidden)` : ""}</p>
       <div style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:8px;">
         ${bulkSearchResults.map((r,i) => `
           <label style="display:flex;align-items:center;gap:10px;padding:7px 6px;font-size:13.5px;border-bottom:1px solid var(--border);">
