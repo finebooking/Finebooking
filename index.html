@@ -106,7 +106,7 @@
   .field label{display:block;font-size:11.5px;font-weight:600;color:var(--text-soft);margin-bottom:5px;}
   .field input[type=text],.field input[type=number]{
     width:100%;border:1px solid var(--border);border-radius:10px;padding:9px 11px;
-    font-size:14px;font-family:inherit;color:var(--text);
+    font-size:16px;font-family:inherit;color:var(--text);
   }
   .autocomplete-list{
     position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;
@@ -272,7 +272,7 @@
   .form-field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;}
   .form-field input,.form-field select,.form-field textarea{
     width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;
-    font-size:14.5px;font-family:inherit;
+    font-size:16px;font-family:inherit;
   }
   .form-field textarea{resize:vertical;min-height:70px;}
   .summary-box{
@@ -568,7 +568,7 @@
     <div id="adminLoginBox" style="max-width:360px;margin:60px auto;text-align:center;">
       <h1 style="font-size:22px;margin-bottom:10px;">Admin access</h1>
       <p style="color:var(--text-soft);font-size:14px;margin-bottom:18px;">Enter your admin password to manage listings.</p>
-      <input type="password" id="adminPasswordInput" placeholder="Password" style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14.5px;margin-bottom:12px;">
+      <input type="password" id="adminPasswordInput" placeholder="Password" style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:16px;margin-bottom:12px;">
       <button class="btn-primary" style="width:100%;padding:11px;" onclick="checkAdminPassword()">Enter</button>
       <p style="font-size:12px;color:var(--text-soft);margin-top:14px;">Note: this is a basic screen lock for a demo, not real security — don't rely on it to protect sensitive data.</p>
     </div>
@@ -577,6 +577,15 @@
 
       <div id="firebaseStatusBanner" style="border-radius:12px;padding:12px 16px;margin-bottom:18px;font-size:13.5px;font-weight:600;"></div>
 
+      <div class="section-title">
+        <h2>Fix listing locations (one-time)</h2>
+        <span></span>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:10px;">
+        <p style="font-size:13.5px;color:var(--text-soft);margin:0 0 14px;">Looks up every listing's real suburb/town from its coordinates and corrects the saved location text — fixes places that got mislabeled with whatever area name was typed into a bulk search (e.g. a place actually in Katabi but tagged "Entebbe"). Safe to run more than once; it skips anything already correct.</p>
+        <button type="button" class="btn-primary" id="fixLocationsBtn" onclick="fixAllListingLocations()">Run one-time location fix</button>
+        <div id="fixLocationsProgress" style="margin-top:14px;"></div>
+      </div>
 
       <div class="section-title">
         <h2>Bulk import places (from OpenStreetMap)</h2>
@@ -1560,6 +1569,68 @@ function checkAdminPassword(){
   }
 }
 
+/* ---------- One-time location fix ---------- */
+async function reverseGeocode(lat, lng){
+  const url = "https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lng + "&zoom=14&addressdetails=1";
+  const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+  if(!res.ok) throw new Error("Reverse geocode failed (" + res.status + ")");
+  const data = await res.json();
+  const addr = data.address || {};
+  // Prefer the most specific real-world area name available, in order.
+  const area = addr.suburb || addr.neighbourhood || addr.town || addr.village || addr.city_district || addr.city || addr.county;
+  const city = addr.city || addr.town || addr.county;
+  if(area && city && area !== city){
+    return area + ", " + city;
+  }
+  return area || city || null;
+}
+
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+async function fixAllListingLocations(){
+  const btn = document.getElementById("fixLocationsBtn");
+  const progressEl = document.getElementById("fixLocationsProgress");
+  btn.disabled = true;
+  btn.textContent = "Running...";
+
+  // Work on every listing currently loaded (defaults + overrides + custom),
+  // same list the site actually shows.
+  const targets = listings.filter(l => typeof l.lat === "number" && typeof l.lng === "number");
+  let checked = 0, fixed = 0, skipped = 0, failed = 0;
+
+  progressEl.innerHTML = `<p style="font-size:13.5px;color:var(--text-soft);">Checking ${targets.length} listings — this respects the map service's rate limit, so it takes about 1 second per listing.</p>`;
+
+  for(const l of targets){
+    checked++;
+    progressEl.querySelector("p").textContent = `Checking ${checked} of ${targets.length}... (${fixed} fixed so far)`;
+    try{
+      const correctLocation = await reverseGeocode(l.lat, l.lng);
+      if(correctLocation && correctLocation !== l.location){
+        if(isDefaultId(l.id)){
+          await persistOverride(l.id, { location: correctLocation });
+        } else {
+          await persistListing({ ...l, location: correctLocation });
+        }
+        fixed++;
+      } else {
+        skipped++;
+      }
+    }catch(err){
+      console.log("Location fix failed for listing " + l.id + ":", err);
+      failed++;
+    }
+    // Nominatim's usage policy allows roughly 1 request/second — stay under that.
+    await sleep(1100);
+  }
+
+  await refreshAllListings();
+  renderAdminTable();
+
+  btn.disabled = false;
+  btn.textContent = "Run one-time location fix";
+  progressEl.innerHTML = `<p style="font-size:13.5px;color:var(--accent-dark);font-weight:600;">Done — checked ${checked}, corrected ${fixed}, already fine ${skipped}${failed ? ", couldn't check " + failed : ""}.</p>`;
+}
+
 let bulkSearchResults = [];
 
 async function fetchOverpass(query){
@@ -1610,6 +1681,9 @@ async function bulkSearchPlaces(){
     resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Searching nearby places... (this can take a few seconds)</p>';
 
     // Step 2: query Overpass for real places tagged in this area (free, open data)
+    // out body means "each node's own tags", which includes addr:suburb / addr:city
+    // when the mapper set them — that's what lets us label each place by where it
+    // actually is, rather than by whatever area name was typed into this box.
     const tagParts = [];
     if(wantHotel) tagParts.push(`node["tourism"="hotel"](around:${radius},${centerLat},${centerLng});`);
     if(wantGuesthouse) tagParts.push(`node["tourism"="guest_house"](around:${radius},${centerLat},${centerLng});`);
@@ -1631,7 +1705,18 @@ async function bulkSearchPlaces(){
       if(el.tags.tourism === "guest_house") category = "Guesthouse";
       else if(el.tags.tourism === "motel") category = "Motel";
       else if(el.tags.amenity === "restaurant") category = "Restaurant";
-      return { name: el.tags.name, category, lat: el.lat, lng: el.lon, location: area };
+      // Use the place's own suburb/city tag from OpenStreetMap when it has one,
+      // so it's labeled by where it actually is rather than by the search term.
+      // Falls back to the typed search area if OSM has no address tags for it.
+      const realArea = el.tags["addr:suburb"] || el.tags["addr:neighbourhood"] || el.tags["addr:city"];
+      const realCity = el.tags["addr:city"];
+      let resolvedLocation = area;
+      if(realArea && realCity && realArea !== realCity){
+        resolvedLocation = realArea + ", " + realCity;
+      } else if(realArea || realCity){
+        resolvedLocation = realArea || realCity;
+      }
+      return { name: el.tags.name, category, lat: el.lat, lng: el.lon, location: resolvedLocation };
     });
     bulkSearchResults = allFound.filter(r => !existingNames.has(r.name.toLowerCase()));
     const skippedCount = allFound.length - bulkSearchResults.length;
@@ -1648,7 +1733,7 @@ async function bulkSearchPlaces(){
           <label style="display:flex;align-items:center;gap:10px;padding:7px 6px;font-size:13.5px;border-bottom:1px solid var(--border);">
             <input type="checkbox" class="bulkPick" data-i="${i}" checked style="width:auto;">
             <span style="flex:1;">${r.name}</span>
-            <span style="color:var(--text-soft);font-size:12.5px;">${r.category}</span>
+            <span style="color:var(--text-soft);font-size:12.5px;">${r.category} · ${r.location}</span>
           </label>
         `).join("")}
       </div>
