@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fine Booking — Stays across Uganda</title>
+<meta name="theme-color" content="#E0475A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Fine Booking">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&family=Pacifico&display=swap" rel="stylesheet">
 
@@ -399,6 +404,14 @@
     </div>
 
     <div class="grid" id="listingsGrid"></div>
+
+    <section class="partners">
+      <div class="section-title">
+        <h2>Recommended for your trip</h2>
+        <span>Partner listings</span>
+      </div>
+      <div class="grid" id="partnersGrid"></div>
+    </section>
   </div>
 
   <section class="how">
@@ -433,14 +446,6 @@
         <div class="stat"><b>Direct</b><span>Payment straight to the host</span></div>
         <div class="stat"><b>WhatsApp</b><span>-friendly from request to confirmation</span></div>
       </div>
-    </section>
-
-    <section class="partners">
-      <div class="section-title">
-        <h2>Recommended for your trip</h2>
-        <span>Partner listings</span>
-      </div>
-      <div class="grid" id="partnersGrid"></div>
     </section>
   </div>
 </div>
@@ -526,9 +531,27 @@
       <h1 style="font-size:22px;">Request sent</h1>
       <p style="color:var(--text-soft);font-size:14.5px;margin-top:10px;">We've received your request and we're checking availability with the host now. Expect a WhatsApp message or email from us shortly.</p>
       <div class="ref-code" id="refCodeDisplay"></div>
-      <div style="margin-top:26px;">
+      <p style="color:var(--text-soft);font-size:12.8px;margin-top:10px;">Save that code — you can check your request's status with it anytime.</p>
+      <div style="margin-top:26px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
         <button class="btn-primary" onclick="showView('view-home')">Back to listings</button>
+        <button class="btn-ghost" onclick="showView('view-track-booking')">Track this request</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TRACK BOOKING VIEW ============ -->
+<div id="view-track-booking" class="view">
+  <div class="wrap">
+    <a href="#" class="back-link" onclick="showView('view-home');return false;">← Back</a>
+    <div class="form-wrap">
+      <h1 style="font-size:22px;margin-bottom:4px;">Track your booking</h1>
+      <p style="color:var(--text-soft);font-size:14px;margin:0 0 18px;">Enter the reference code you got when you sent your request (e.g. FB-2026-1234).</p>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="trackRefInput" placeholder="FB-2026-1234" style="flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:16px;font-family:inherit;">
+        <button class="btn-primary" onclick="trackBooking()">Check</button>
+      </div>
+      <div id="trackResultBox" style="margin-top:20px;"></div>
     </div>
   </div>
 </div>
@@ -578,6 +601,14 @@
       <div id="firebaseStatusBanner" style="border-radius:12px;padding:12px 16px;margin-bottom:18px;font-size:13.5px;font-weight:600;"></div>
 
       <div class="section-title">
+        <h2>Booking requests <span id="pendingCountBadge"></span></h2>
+        <span></span>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:10px;">
+        <div id="bookingsTable"><p style="font-size:13.5px;color:var(--text-soft);">Loading...</p></div>
+      </div>
+
+      <div class="section-title">
         <h2>Fix listing locations (one-time)</h2>
         <span></span>
       </div>
@@ -621,6 +652,7 @@
         </div>
 
         <button type="button" class="btn-primary" onclick="bulkSearchPlaces()">Search this area</button>
+        <p style="font-size:11.5px;color:var(--text-soft);margin-top:8px;">A wide radius (10–20km) can take a minute or two — each place without existing address data gets individually checked so it's labeled correctly, rather than lumped under the area you typed.</p>
 
         <div id="bulkResults" style="margin-top:16px;"></div>
         <p style="font-size:11.5px;color:var(--text-soft);margin-top:14px;">Place data © OpenStreetMap contributors, available under the Open Database Licence.</p>
@@ -715,6 +747,7 @@
             <label style="display:flex;align-items:center;gap:8px;font-weight:500;">
               <input type="checkbox" id="admHasOwnSystem" style="width:auto;" onchange="toggleAdminBookingFields()"> This host has their own booking/payment system
             </label>
+            <p style="font-size:12.5px;color:var(--text-soft);margin:6px 0 0;">Price, description and photos become optional — their own site already has that. Just add the name, location and their booking link below.</p>
           </div>
           <div class="form-field full" id="admOwnerEmailField">
             <label>Owner email (requests are addressed to this host — routing itself still goes through your Web3Forms inbox)</label>
@@ -814,6 +847,7 @@
         <h4>Explore</h4>
         <a href="#" onclick="filterCategory('all');showView('view-home');return false;">All stays</a>
         <a href="#" onclick="filterCategory('Restaurant');showView('view-home');return false;">Restaurants</a>
+        <a href="#" onclick="showView('view-track-booking');return false;">Track a booking</a>
       </div>
       <div>
         <h4>Hosts</h4>
@@ -834,7 +868,7 @@
     </div>
     <div class="footer-bottom">
       <span>© 2026 Fine Booking, Uganda.</span>
-      <span>hellofinebooking@gmail.com · WhatsApp +256 702 737295</span>
+      <span><a href="mailto:hellofinebooking@gmail.com" style="text-decoration:underline;">hellofinebooking@gmail.com</a> · <a href="tel:+256702737295" style="text-decoration:underline;">Call</a> · <a href="https://wa.me/256702737295" target="_blank" style="text-decoration:underline;">WhatsApp</a></span>
     </div>
   </div>
 </footer>
@@ -860,6 +894,54 @@
    Replace image URLs, listing details, and the Web3Forms
    access key with your real ones before going live.
 ============================================================ */
+
+/* ============================================================
+   ADD TO HOME SCREEN SUPPORT
+   ------------------------------------------------------------
+   Draws a simple "FB" app icon on a canvas at load time (no
+   separate image file needed since this is one static HTML
+   file), then wires it up as the iOS home-screen icon and as
+   part of a web app manifest for Android/Chrome's install
+   prompt. Safe to leave as-is; swap in a real hosted icon URL
+   later if you want a fancier logo.
+============================================================ */
+(function setupAddToHomeScreen(){
+  try{
+    const canvas = document.createElement("canvas");
+    canvas.width = 192; canvas.height = 192;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#E0475A";
+    ctx.fillRect(0, 0, 192, 192);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 92px Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("FB", 96, 104);
+    const iconDataUrl = canvas.toDataURL("image/png");
+
+    const appleIcon = document.createElement("link");
+    appleIcon.rel = "apple-touch-icon";
+    appleIcon.href = iconDataUrl;
+    document.head.appendChild(appleIcon);
+
+    const manifest = {
+      name: "Fine Booking",
+      short_name: "FineBooking",
+      start_url: ".",
+      display: "standalone",
+      background_color: "#FFFFFF",
+      theme_color: "#E0475A",
+      icons: [{ src: iconDataUrl, sizes: "192x192", type: "image/png" }]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
+    const manifestLink = document.createElement("link");
+    manifestLink.rel = "manifest";
+    manifestLink.href = URL.createObjectURL(manifestBlob);
+    document.head.appendChild(manifestLink);
+  }catch(err){
+    console.log("Add-to-home-screen setup skipped:", err);
+  }
+})();
 
 const WEB3FORMS_ACCESS_KEY = "cbeb3201-49cb-4522-9818-9382c3248ff3";
 
@@ -1025,7 +1107,7 @@ function listingMinPrice(l){
 function cardHTML(l){
   const saved = getSaved().includes(l.id);
   const hasRooms = l.rooms && l.rooms.length > 0;
-  const priceLabel = l.basic ? "Contact for details" : (hasRooms ? "From " + formatUGX(listingMinPrice(l)) : formatUGX(l.price));
+  const priceLabel = l.basic ? "Contact for details" : (hasRooms ? "From " + formatUGX(listingMinPrice(l)) : (l.price != null ? formatUGX(l.price) : "See price on their site"));
   return `
     <div class="card" onclick="openListing(${l.id})">
       <div class="card-img">
@@ -1319,19 +1401,23 @@ function bookingBoxHTML(l){
     return `
       <div class="price-line" style="font-size:16px;">Details coming soon</div>
       <a class="btn-primary" style="display:block;text-align:center;width:100%;padding:12px;box-sizing:border-box;" target="_blank" href="https://wa.me/${waNumber}?text=${waMsg}">Enquire on WhatsApp</a>
-      <p class="response-note">We haven't confirmed pricing or photos for this place yet — message us and we'll follow up.</p>`;
+      <a class="btn-ghost" style="display:flex;justify-content:center;width:100%;padding:12px;box-sizing:border-box;margin-top:8px;" href="tel:+${waNumber}">📞 Call us instead</a>
+      <p class="response-note">We haven't confirmed pricing or photos for this place yet — message or call and we'll follow up.</p>`;
   }
   const room = (l.rooms && l.rooms.length > 0) ? l.rooms.find(r => r.id === selectedRoomId) : null;
   const price = room ? room.price : l.price;
   const priceNote = room ? ` <span style="font-weight:400;color:var(--text-soft);">(${room.name})</span>` : "";
+  const priceLine = price != null
+    ? `${formatUGX(price)}${priceNote} <span>/ ${l.category === "Restaurant" ? "person" : "night"}</span>`
+    : `See price on their site`;
   if(l.hasOwnSystem){
     return `
-      <div class="price-line">${formatUGX(price)}${priceNote} <span>/ ${l.category === "Restaurant" ? "person" : "night"}</span></div>
+      <div class="price-line">${priceLine}</div>
       <button class="btn-primary" style="width:100%;padding:12px;" onclick="window.open('${l.externalBookingUrl}','_blank')">Book on their site</button>
       <p class="response-note">This host uses their own booking and payment system — you'll complete everything there.</p>`;
   }
   return `
-    <div class="price-line">${formatUGX(price)}${priceNote} <span>/ ${l.category === "Restaurant" ? "person" : "night"}</span></div>
+    <div class="price-line">${priceLine}</div>
     <button class="btn-primary" style="width:100%;padding:12px;" onclick="startBooking(${l.id})">Request to book</button>
     <p class="response-note">Free to request. Nothing is charged, and it's not confirmed until we check with the host.</p>`;
 }
@@ -1386,10 +1472,100 @@ function generateReference(){
   return "FB-" + new Date().getFullYear() + "-" + rand;
 }
 
+/* --- Booking requests: same Firestore-with-local-fallback pattern as listings --- */
+async function persistBooking(booking){
+  if(firebaseReady){
+    try{ await db.collection("bookings").doc(booking.reference).set(booking); return; }
+    catch(err){ console.log("Firestore booking write failed, saving locally instead.", err); }
+  }
+  const local = fetchLocalBookings();
+  local.push(booking);
+  localStorage.setItem("fb_bookings", JSON.stringify(local));
+}
+
+function fetchLocalBookings(){
+  try{ return JSON.parse(localStorage.getItem("fb_bookings") || "[]"); }catch(e){ return []; }
+}
+
+async function fetchBookingByReference(reference){
+  if(firebaseReady){
+    try{
+      const doc = await db.collection("bookings").doc(reference).get();
+      return doc.exists ? doc.data() : null;
+    }catch(err){ console.log("Firestore booking lookup failed, checking local storage.", err); }
+  }
+  return fetchLocalBookings().find(b => b.reference === reference) || null;
+}
+
+async function fetchAllBookings(){
+  if(firebaseReady){
+    try{
+      const snap = await db.collection("bookings").orderBy("createdAt", "desc").get();
+      return snap.docs.map(d => d.data());
+    }catch(err){ console.log("Firestore bookings read failed, using local storage instead.", err); }
+  }
+  return fetchLocalBookings().slice().reverse();
+}
+
+async function updateBookingStatus(reference, status){
+  if(firebaseReady){
+    try{ await db.collection("bookings").doc(reference).update({ status }); return; }
+    catch(err){ console.log("Firestore status update failed, updating locally instead.", err); }
+  }
+  const local = fetchLocalBookings();
+  const idx = local.findIndex(b => b.reference === reference);
+  if(idx >= 0){ local[idx].status = status; localStorage.setItem("fb_bookings", JSON.stringify(local)); }
+}
+
+function statusBadgeHTML(status){
+  const colors = {
+    pending: { bg: "#FDF3E3", fg: "#9A6B1E", label: "Pending" },
+    confirmed: { bg: "var(--accent-soft)", fg: "var(--accent-dark)", label: "Confirmed" },
+    declined: { bg: "#F1F1F1", fg: "#6B6259", label: "Declined" }
+  };
+  const c = colors[status] || colors.pending;
+  return `<span style="display:inline-block;background:${c.bg};color:${c.fg};font-size:12.5px;font-weight:600;padding:4px 11px;border-radius:999px;">${c.label}</span>`;
+}
+
+async function trackBooking(){
+  const refInput = document.getElementById("trackRefInput");
+  const box = document.getElementById("trackResultBox");
+  const reference = refInput.value.trim().toUpperCase();
+  if(!reference){ box.innerHTML = ""; return; }
+
+  box.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Checking...</p>';
+  const booking = await fetchBookingByReference(reference);
+
+  if(!booking){
+    box.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">No request found with that code — double check it matches exactly what you were given.</p>';
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="summary-box">
+      <div><span>Reference</span><b>${booking.reference}</b></div>
+      <div><span>Place</span><b>${booking.listingName}</b></div>
+      <div><span>Location</span><b>${booking.location}</b></div>
+      <div><span>Dates</span><b>${booking.checkIn} → ${booking.checkOut}</b></div>
+      <div><span>Status</span><b>${statusBadgeHTML(booking.status)}</b></div>
+    </div>
+    <p class="response-note">Status updates as soon as we've confirmed with the host — check back, or wait for our WhatsApp/email message.</p>
+  `;
+}
+
+async function generateUniqueReference(){
+  for(let i = 0; i < 5; i++){
+    const candidate = generateReference();
+    const existing = await fetchBookingByReference(candidate);
+    if(!existing) return candidate;
+  }
+  return generateReference() + "-" + Math.floor(Math.random()*100); // extremely unlikely fallback
+}
+
 async function submitBooking(e){
   e.preventDefault();
   const l = listings.find(x => x.id === currentListingId);
-  currentReference = generateReference();
+  currentReference = await generateUniqueReference();
 
   const payload = {
     access_key: WEB3FORMS_ACCESS_KEY,
@@ -1418,6 +1594,24 @@ async function submitBooking(e){
   }catch(err){
     console.log("Form submission error (demo mode, no live key set):", err);
   }
+
+  // Also save it as a trackable booking record, separate from the email
+  // notification above — this is what powers "track my booking" for the
+  // guest and the Booking requests table in Admin.
+  await persistBooking({
+    reference: currentReference,
+    listingName: l.name,
+    location: l.location,
+    guestName: payload.guest_name,
+    guestPhone: payload.guest_phone,
+    guestEmail: payload.guest_email,
+    checkIn: payload.check_in,
+    checkOut: payload.check_out,
+    guests: payload.guests,
+    rooms: payload.rooms,
+    status: "pending",
+    createdAt: Date.now()
+  });
 
   document.getElementById("refCodeDisplay").textContent = currentReference;
   showView("view-confirmation");
@@ -1554,6 +1748,7 @@ function openAdmin(){
     document.getElementById("adminPanel").style.display = "block";
     renderFirebaseStatusBanner();
     renderAdminTable();
+    renderBookingsTable();
   }
 }
 function checkAdminPassword(){
@@ -1564,9 +1759,43 @@ function checkAdminPassword(){
     document.getElementById("adminPanel").style.display = "block";
     renderFirebaseStatusBanner();
     renderAdminTable();
+    renderBookingsTable();
   } else {
     alert("That password isn't right.");
   }
+}
+
+async function renderBookingsTable(){
+  const el = document.getElementById("bookingsTable");
+  const badge = document.getElementById("pendingCountBadge");
+  const bookings = await fetchAllBookings();
+
+  const pendingCount = bookings.filter(b => b.status === "pending" || !b.status).length;
+  badge.innerHTML = pendingCount > 0
+    ? `<span style="background:var(--accent);color:#fff;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;vertical-align:middle;">${pendingCount} pending</span>`
+    : "";
+
+  if(bookings.length === 0){
+    el.innerHTML = '<p style="color:var(--text-soft);font-size:14px;">No booking requests yet.</p>';
+    return;
+  }
+
+  el.innerHTML = bookings.map(b => `
+    <div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div style="font-weight:600;font-size:14.5px;">${b.listingName} <span style="font-weight:400;color:var(--text-soft);font-size:12.5px;">· ${b.reference}</span></div>
+          <div style="font-size:13px;color:var(--text-soft);margin-top:2px;">${b.guestName} · ${b.guestPhone}${b.guestEmail ? " · " + b.guestEmail : ""}</div>
+          <div style="font-size:13px;color:var(--text-soft);margin-top:2px;">${b.checkIn} → ${b.checkOut} · ${b.guests} guests · ${b.rooms} room(s)</div>
+        </div>
+        <select onchange="updateBookingStatus('${b.reference}', this.value).then(renderBookingsTable)" style="border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:13px;height:fit-content;">
+          <option value="pending" ${(!b.status || b.status === "pending") ? "selected" : ""}>Pending</option>
+          <option value="confirmed" ${b.status === "confirmed" ? "selected" : ""}>Confirmed</option>
+          <option value="declined" ${b.status === "declined" ? "selected" : ""}>Declined</option>
+        </select>
+      </div>
+    </div>
+  `).join("");
 }
 
 /* ---------- One-time location fix ---------- */
@@ -1633,20 +1862,43 @@ async function fixAllListingLocations(){
 
 let bulkSearchResults = [];
 
-async function fetchOverpass(query){
+async function fetchOverpass(query, onStatus){
   const servers = [
     "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter"
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.openstreetmap.ru/api/interpreter"
   ];
   let lastErr = null;
-  for(const server of servers){
+  // Two full rounds through every mirror before actually giving up — a single
+  // failed request against one busy server used to end the whole search.
+  for(let round = 1; round <= 2; round++){
+    for(const server of servers){
+      try{
+        if(onStatus) onStatus(server, round);
+        const res = await fetch(server, { method: "POST", body: "data=" + encodeURIComponent(query) });
+        if(!res.ok) throw new Error("Server responded " + res.status);
+        return await res.json();
+      }catch(err){
+        lastErr = err;
+        console.log("Overpass server failed (" + server + ", round " + round + "):", err);
+      }
+    }
+    if(round < 2) await sleep(2000); // brief pause before retrying all mirrors again
+  }
+  throw lastErr;
+}
+
+async function fetchWithRetry(url, options, attempts, delayMs){
+  let lastErr = null;
+  for(let i = 1; i <= attempts; i++){
     try{
-      const res = await fetch(server, { method: "POST", body: "data=" + encodeURIComponent(query) });
+      const res = await fetch(url, options);
       if(!res.ok) throw new Error("Server responded " + res.status);
-      return await res.json();
+      return res;
     }catch(err){
       lastErr = err;
-      console.log("Overpass server failed (" + server + "):", err);
+      console.log("Request failed (attempt " + i + "/" + attempts + "):", err);
+      if(i < attempts) await sleep(delayMs);
     }
   }
   throw lastErr;
@@ -1669,8 +1921,13 @@ async function bulkSearchPlaces(){
 
   try{
     // Step 1: geocode the area to a center point (free, OpenStreetMap Nominatim)
-    const geoRes = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ug&q=" + encodeURIComponent(area), { headers: { "Accept-Language": "en" } });
-    if(!geoRes.ok) throw new Error("Location lookup failed (" + geoRes.status + ")");
+    // Retries a few times before giving up — a single dropped request used to
+    // fail the whole search immediately.
+    const geoRes = await fetchWithRetry(
+      "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ug&q=" + encodeURIComponent(area),
+      { headers: { "Accept-Language": "en" } },
+      3, 1500
+    );
     const geoData = await geoRes.json();
     if(!geoData || geoData.length === 0){
       resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Couldn\'t find that area — try a more specific name.</p>';
@@ -1681,43 +1938,72 @@ async function bulkSearchPlaces(){
     resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Searching nearby places... (this can take a few seconds)</p>';
 
     // Step 2: query Overpass for real places tagged in this area (free, open data)
-    // out body means "each node's own tags", which includes addr:suburb / addr:city
-    // when the mapper set them — that's what lets us label each place by where it
-    // actually is, rather than by whatever area name was typed into this box.
+    // "nwr" = node, way, AND relation — many real places (especially bigger
+    // hotels/guesthouses) are mapped as a building outline or a group of
+    // buildings, not a single point, so a node-only search silently missed them.
+    // "out center" gives us a usable lat/lng for those too.
     const tagParts = [];
-    if(wantHotel) tagParts.push(`node["tourism"="hotel"](around:${radius},${centerLat},${centerLng});`);
-    if(wantGuesthouse) tagParts.push(`node["tourism"="guest_house"](around:${radius},${centerLat},${centerLng});`);
-    if(wantMotel) tagParts.push(`node["tourism"="motel"](around:${radius},${centerLat},${centerLng});`);
-    if(wantRestaurant) tagParts.push(`node["amenity"="restaurant"](around:${radius},${centerLat},${centerLng});`);
+    if(wantHotel) tagParts.push(`nwr["tourism"="hotel"](around:${radius},${centerLat},${centerLng});`);
+    if(wantGuesthouse) tagParts.push(`nwr["tourism"="guest_house"](around:${radius},${centerLat},${centerLng});`);
+    if(wantMotel) tagParts.push(`nwr["tourism"="motel"](around:${radius},${centerLat},${centerLng});`);
+    if(wantRestaurant) tagParts.push(`nwr["amenity"="restaurant"](around:${radius},${centerLat},${centerLng});`);
 
-    const query = `[out:json][timeout:25];(${tagParts.join("")});out body;`;
-    const overpassData = await fetchOverpass(query);
+    const query = `[out:json][timeout:40];(${tagParts.join("")});out center;`;
+    const overpassData = await fetchOverpass(query, (server, round) => {
+      const label = server.replace("https://", "").split("/")[0];
+      resultsBox.innerHTML = `<p style="font-size:13.5px;color:var(--text-soft);">Searching nearby places via ${label}${round > 1 ? " (retrying...)" : ""}...</p>`;
+    });
 
-    const named = (overpassData.elements || []).filter(el => el.tags && el.tags.name);
+    const named = (overpassData.elements || []).filter(el => {
+      if(!el.tags || !el.tags.name) return false;
+      const lat = el.lat !== undefined ? el.lat : (el.center ? el.center.lat : null);
+      const lng = el.lon !== undefined ? el.lon : (el.center ? el.center.lon : null);
+      return lat !== null && lng !== null;
+    });
     if(named.length === 0){
       resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">No named places found in that radius — try widening it or a nearby area.</p>';
       return;
     }
 
-    const existingNames = new Set(listings.map(l => l.name.toLowerCase()));
-    const allFound = named.map(el => {
+    // Step 3: resolve each place's real area from its own OSM address tags
+    // when present; otherwise look it up from its actual coordinates. This is
+    // deliberately per-place — it's what stops every result in a wide 20km
+    // search from getting lumped under whatever area name you typed in.
+    resultsBox.innerHTML = `<p style="font-size:13.5px;color:var(--text-soft);">Found ${named.length} places — figuring out exactly where each one is...</p>`;
+
+    const resolvedPlaces = [];
+    for(const el of named){
+      const lat = el.lat !== undefined ? el.lat : el.center.lat;
+      const lng = el.lon !== undefined ? el.lon : el.center.lon;
       let category = "Hotel";
       if(el.tags.tourism === "guest_house") category = "Guesthouse";
       else if(el.tags.tourism === "motel") category = "Motel";
       else if(el.tags.amenity === "restaurant") category = "Restaurant";
-      // Use the place's own suburb/city tag from OpenStreetMap when it has one,
-      // so it's labeled by where it actually is rather than by the search term.
-      // Falls back to the typed search area if OSM has no address tags for it.
+
       const realArea = el.tags["addr:suburb"] || el.tags["addr:neighbourhood"] || el.tags["addr:city"];
       const realCity = el.tags["addr:city"];
-      let resolvedLocation = area;
+      let resolvedLocation;
       if(realArea && realCity && realArea !== realCity){
         resolvedLocation = realArea + ", " + realCity;
       } else if(realArea || realCity){
         resolvedLocation = realArea || realCity;
+      } else {
+        // OSM has no address tags on this one — look up its real area from
+        // its actual coordinates instead of defaulting to the typed search term.
+        try{
+          resolvedLocation = await reverseGeocode(lat, lng);
+        }catch(err){
+          console.log("Reverse geocode failed for " + el.tags.name + ":", err);
+        }
+        if(!resolvedLocation) resolvedLocation = area;
+        await sleep(1100); // stay under Nominatim's ~1 request/second usage policy
       }
-      return { name: el.tags.name, category, lat: el.lat, lng: el.lon, location: resolvedLocation };
-    });
+      resolvedPlaces.push({ name: el.tags.name, category, lat, lng, location: resolvedLocation });
+      resultsBox.innerHTML = `<p style="font-size:13.5px;color:var(--text-soft);">Resolved ${resolvedPlaces.length} of ${named.length}...</p>`;
+    }
+
+    const existingNames = new Set(listings.map(l => l.name.toLowerCase()));
+    const allFound = resolvedPlaces;
     bulkSearchResults = allFound.filter(r => !existingNames.has(r.name.toLowerCase()));
     const skippedCount = allFound.length - bulkSearchResults.length;
 
@@ -1740,7 +2026,10 @@ async function bulkSearchPlaces(){
       <button type="button" id="bulkAddBtn" class="btn-primary" style="margin-top:12px;" onclick="bulkAddSelected()">Add selected to site</button>
     `;
   }catch(err){
-    resultsBox.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">The map data service didn\'t respond in time — this is usually the free service being busy, not your connection. Wait a moment and tap Search again.</p>';
+    resultsBox.innerHTML = `
+      <p style="font-size:13.5px;color:var(--text-soft);">Couldn't reach the free map service after several tries — it's likely just busy right now, not a problem with your connection or the search itself.</p>
+      <button type="button" class="btn-ghost" style="margin-top:8px;" onclick="bulkSearchPlaces()">Try again</button>
+    `;
     console.log("Bulk import error:", err);
   }
 }
@@ -1834,180 +2123,4 @@ function selectGeoResult(lat, lng, displayName){
   if(!document.getElementById("admLocation").value){
     document.getElementById("admLocation").value = displayName.split(",").slice(0,2).join(",").trim();
   }
-  document.getElementById("geoResults").innerHTML = '<p style="font-size:13px;color:var(--accent-dark);">✓ Location set</p>';
-}
-
-function toggleQuickAdd(){
-  const quick = document.getElementById("admQuickAdd").checked;
-  ["admPrice","admDescription","admImages"].forEach(id => {
-    document.getElementById(id).required = !quick;
-  });
-}
-
-function toggleAdminBookingFields(){
-  const hasOwn = document.getElementById("admHasOwnSystem").checked;
-  document.getElementById("admOwnerEmailField").style.display = hasOwn ? "none" : "block";
-  document.getElementById("admExternalUrlField").style.display = hasOwn ? "block" : "none";
-}
-
-function resetAdminForm(){
-  document.getElementById("adminForm").reset();
-  document.getElementById("adminEditId").value = "";
-  document.getElementById("adminFormTitle").textContent = "Add a new listing";
-  toggleAdminBookingFields();
-  toggleQuickAdd();
-}
-
-async function saveListingFromAdmin(e){
-  e.preventDefault();
-  const editId = document.getElementById("adminEditId").value;
-  const hasOwn = document.getElementById("admHasOwnSystem").checked;
-  const isQuick = document.getElementById("admQuickAdd").checked;
-  const PLACEHOLDER_IMG = "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800";
-
-  const listing = {
-    id: editId ? Number(editId) : Date.now(),
-    name: document.getElementById("admName").value,
-    category: document.getElementById("admCategory").value,
-    location: document.getElementById("admLocation").value,
-    price: document.getElementById("admPrice").value ? Number(document.getElementById("admPrice").value) : null,
-    capacity: Number(document.getElementById("admCapacity").value || 1),
-    lat: Number(document.getElementById("admLat").value),
-    lng: Number(document.getElementById("admLng").value),
-    rating: 4.8,
-    basic: isQuick,
-    guestFavorite: document.getElementById("admGuestFavorite").checked,
-    verified: document.getElementById("admVerified").checked,
-    description: document.getElementById("admDescription").value || "Details coming soon — contact us to enquire.",
-    images: document.getElementById("admImages").value.split("\n").map(s => s.trim()).filter(Boolean).length
-      ? document.getElementById("admImages").value.split("\n").map(s => s.trim()).filter(Boolean)
-      : [PLACEHOLDER_IMG],
-    amenities: document.getElementById("admAmenities").value.split(",").map(s => s.trim()).filter(Boolean),
-    rooms: document.getElementById("admRooms").value.split("\n").map(s => s.trim()).filter(Boolean).map((line, i) => {
-      const parts = line.split("|").map(p => p.trim());
-      return { id: "r" + (i+1), name: parts[0] || "Room", price: Number(parts[1]) || 0, capacity: Number(parts[2]) || 2, image: parts[3] || "" };
-    }),
-    hasOwnSystem: hasOwn,
-    ownerEmail: hasOwn ? "" : document.getElementById("admOwnerEmail").value,
-    externalBookingUrl: hasOwn ? document.getElementById("admExternalUrl").value : ""
-  };
-
-  if(editId && isDefaultId(Number(editId))){
-    const { id: _drop, ...fields } = listing;
-    await persistOverride(Number(editId), fields);
-  } else {
-    await persistListing(listing);
-  }
-  await refreshAllListings();
-  resetAdminForm();
-  renderAdminTable();
-  alert("Saved — " + (firebaseReady ? "live for everyone now." : "visible on this browser for now (connect Firebase to make it live for everyone)."));
-}
-
-function editListing(id){
-  const l = listings.find(x => x.id === id);
-  if(!l) return;
-  document.getElementById("adminEditId").value = l.id;
-  document.getElementById("adminFormTitle").textContent = "Edit listing";
-  document.getElementById("admName").value = l.name;
-  document.getElementById("admCategory").value = l.category;
-  document.getElementById("admLocation").value = l.location;
-  document.getElementById("admPrice").value = l.price || "";
-  document.getElementById("admCapacity").value = l.capacity;
-  document.getElementById("admLat").value = l.lat;
-  document.getElementById("admLng").value = l.lng;
-  document.getElementById("admDescription").value = l.description;
-  document.getElementById("admImages").value = l.images.join("\n");
-  document.getElementById("admAmenities").value = l.amenities.join(", ");
-  document.getElementById("admRooms").value = (l.rooms || []).map(r => [r.name, r.price, r.capacity, r.image || ""].join(" | ")).join("\n");
-  document.getElementById("admVerified").checked = l.verified;
-  document.getElementById("admGuestFavorite").checked = l.guestFavorite;
-  document.getElementById("admHasOwnSystem").checked = l.hasOwnSystem;
-  document.getElementById("admOwnerEmail").value = l.ownerEmail || "";
-  document.getElementById("admExternalUrl").value = l.externalBookingUrl || "";
-  document.getElementById("admQuickAdd").checked = !!l.basic;
-  toggleQuickAdd();
-  toggleAdminBookingFields();
-  window.scrollTo({top:0, behavior:"smooth"});
-}
-
-async function deleteListing(id){
-  if(!confirm("Delete this listing? This can't be undone.")) return;
-  if(isDefaultId(id)){
-    const overrides = await fetchOverrides();
-    await persistOverride(id, {...(overrides[id]||{}), hidden:true});
-  } else {
-    await removeListing(id);
-  }
-  await refreshAllListings();
-  renderAdminTable();
-}
-
-function renderAdminTable(){
-  const el = document.getElementById("adminListingsTable");
-  if(listings.length === 0){
-    el.innerHTML = '<p style="color:var(--text-soft);font-size:14px;">No listings to show.</p>';
-    return;
-  }
-  el.innerHTML = listings.map(l => `
-    <div style="display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
-      <img src="${l.images[0] || ''}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:var(--bg-soft);">
-      <div style="flex:1;">
-        <div style="font-weight:600;font-size:14.5px;">${l.name} ${isDefaultId(l.id) ? '<span style="font-weight:400;color:var(--text-soft);font-size:12px;">(sample)</span>' : ''}</div>
-        <div style="font-size:13px;color:var(--text-soft);">${l.category} · ${l.location} · ${l.price != null ? formatUGX(l.price) : "No price yet"}</div>
-      </div>
-      <button class="btn-ghost" onclick="editListing(${l.id})">Edit</button>
-      <button class="btn-ghost" onclick="deleteListing(${l.id})">Delete</button>
-    </div>
-  `).join("");
-}
-
-async function submitHostForm(e){
-  e.preventDefault();
-  const formData = new FormData();
-  formData.append("access_key", WEB3FORMS_ACCESS_KEY);
-  formData.append("subject", "New host submission — " + document.getElementById("hostPlaceName").value);
-  formData.append("place_name", document.getElementById("hostPlaceName").value);
-  formData.append("category", document.getElementById("hostCategory").value);
-  formData.append("location", document.getElementById("hostLocation").value);
-  formData.append("host_name", document.getElementById("hostName").value);
-  formData.append("host_phone", document.getElementById("hostPhone").value);
-  formData.append("host_email", document.getElementById("hostEmail").value);
-  formData.append("price", document.getElementById("hostPrice").value);
-  formData.append("description", document.getElementById("hostDescription").value);
-
-  const photoInput = document.getElementById("hostPhoto");
-  if(photoInput.files.length > 0){
-    const file = photoInput.files[0];
-    if(file.size > 5 * 1024 * 1024){
-      alert("That photo is over 5MB — please choose a smaller one, or just reply with it after submitting.");
-      return;
-    }
-    formData.append("attachment", file);
-  }
-
-  try{
-    // Replace WEB3FORMS_ACCESS_KEY above with your real key from web3forms.com
-    await fetch("https://api.web3forms.com/submit", { method:"POST", body: formData });
-  }catch(err){
-    console.log("Host form submission error (demo mode, no live key set):", err);
-  }
-
-  alert("Thanks — we've got your submission and will reach out on WhatsApp or email soon.");
-  document.getElementById("hostForm").reset();
-  showView("view-home");
-}
-
-/* ---------- Init ---------- */
-refreshAllListings();
-renderPartners();
-toggleAdminBookingFields();
-
-document.addEventListener("click", (e) => {
-  if(!e.target.closest(".field")){
-    document.getElementById("autocompleteList").style.display = "none";
-  }
-});
-</script>
-</body>
-</html>
+  document.getElementById("geoResults").innerHTML = '<p style="font-size:13px;color:var(--accent-dark);">✓ 
