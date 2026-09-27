@@ -398,13 +398,6 @@
   <div class="wrap">
     <div id="curatedRows"></div>
 
-    <div class="section-title">
-      <h2 id="resultsTitle">All stays</h2>
-      <span id="resultsCount" style="font-size:13.5px;color:var(--text-soft);"></span>
-    </div>
-
-    <div class="grid" id="listingsGrid"></div>
-
     <section class="partners">
       <div class="section-title">
         <h2>Recommended for your trip</h2>
@@ -412,6 +405,13 @@
       </div>
       <div class="grid" id="partnersGrid"></div>
     </section>
+
+    <div class="section-title">
+      <h2 id="resultsTitle">All stays</h2>
+      <span id="resultsCount" style="font-size:13.5px;color:var(--text-soft);"></span>
+    </div>
+
+    <div class="grid" id="listingsGrid"></div>
   </div>
 
   <section class="how">
@@ -1138,7 +1138,12 @@ function renderCuratedRows(){
     byLocation[area] = byLocation[area] || [];
     byLocation[area].push(l);
   });
-  container.innerHTML = Object.keys(byLocation).map(area => `
+  // Only the top 3 busiest areas — showing every single area here is what
+  // was pushing the Recommended banner far down the page.
+  const topAreas = Object.keys(byLocation)
+    .sort((a, b) => byLocation[b].length - byLocation[a].length)
+    .slice(0, 3);
+  container.innerHTML = topAreas.map(area => `
     <div class="section-title">
       <h2>Popular in ${area}</h2>
     </div>
@@ -1188,7 +1193,7 @@ function renderListings(){
   renderCuratedRows();
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 9;
 function loadMoreListings(){
   state.visibleCount = (state.visibleCount || PAGE_SIZE) + PAGE_SIZE;
   const wrap = document.getElementById("loadMoreWrap");
@@ -2123,4 +2128,187 @@ function selectGeoResult(lat, lng, displayName){
   if(!document.getElementById("admLocation").value){
     document.getElementById("admLocation").value = displayName.split(",").slice(0,2).join(",").trim();
   }
-  document.getElementById("geoResults").innerHTML = '<p style="font-size:13px;color:var(--accent-dark);">✓ 
+  document.getElementById("geoResults").innerHTML = '<p style="font-size:13px;color:var(--accent-dark);">✓ Location set</p>';
+}
+
+function updateRequiredAdminFields(){
+  const quick = document.getElementById("admQuickAdd").checked;
+  const hasOwn = document.getElementById("admHasOwnSystem").checked;
+  const relaxed = quick || hasOwn;
+  ["admPrice","admDescription","admImages"].forEach(id => {
+    document.getElementById(id).required = !relaxed;
+  });
+}
+
+function toggleQuickAdd(){
+  updateRequiredAdminFields();
+}
+
+function toggleAdminBookingFields(){
+  const hasOwn = document.getElementById("admHasOwnSystem").checked;
+  document.getElementById("admOwnerEmailField").style.display = hasOwn ? "none" : "block";
+  document.getElementById("admExternalUrlField").style.display = hasOwn ? "block" : "none";
+  updateRequiredAdminFields();
+}
+
+function resetAdminForm(){
+  document.getElementById("adminForm").reset();
+  document.getElementById("adminEditId").value = "";
+  document.getElementById("adminFormTitle").textContent = "Add a new listing";
+  toggleAdminBookingFields();
+  toggleQuickAdd();
+}
+
+async function saveListingFromAdmin(e){
+  e.preventDefault();
+  const editId = document.getElementById("adminEditId").value;
+  const hasOwn = document.getElementById("admHasOwnSystem").checked;
+  const isQuick = document.getElementById("admQuickAdd").checked;
+  const PLACEHOLDER_IMG = "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800";
+
+  const listing = {
+    id: editId ? Number(editId) : Date.now(),
+    name: document.getElementById("admName").value,
+    category: document.getElementById("admCategory").value,
+    location: document.getElementById("admLocation").value,
+    price: document.getElementById("admPrice").value ? Number(document.getElementById("admPrice").value) : null,
+    capacity: Number(document.getElementById("admCapacity").value || 1),
+    lat: Number(document.getElementById("admLat").value),
+    lng: Number(document.getElementById("admLng").value),
+    rating: 4.8,
+    basic: isQuick,
+    guestFavorite: document.getElementById("admGuestFavorite").checked,
+    verified: document.getElementById("admVerified").checked,
+    description: document.getElementById("admDescription").value || (hasOwn ? "Full details, photos and pricing are on their own booking site — tap below to view and book." : "Details coming soon — contact us to enquire."),
+    images: document.getElementById("admImages").value.split("\n").map(s => s.trim()).filter(Boolean).length
+      ? document.getElementById("admImages").value.split("\n").map(s => s.trim()).filter(Boolean)
+      : [PLACEHOLDER_IMG],
+    amenities: document.getElementById("admAmenities").value.split(",").map(s => s.trim()).filter(Boolean),
+    rooms: document.getElementById("admRooms").value.split("\n").map(s => s.trim()).filter(Boolean).map((line, i) => {
+      const parts = line.split("|").map(p => p.trim());
+      return { id: "r" + (i+1), name: parts[0] || "Room", price: Number(parts[1]) || 0, capacity: Number(parts[2]) || 2, image: parts[3] || "" };
+    }),
+    hasOwnSystem: hasOwn,
+    ownerEmail: hasOwn ? "" : document.getElementById("admOwnerEmail").value,
+    externalBookingUrl: hasOwn ? document.getElementById("admExternalUrl").value : ""
+  };
+
+  if(editId && isDefaultId(Number(editId))){
+    const { id: _drop, ...fields } = listing;
+    await persistOverride(Number(editId), fields);
+  } else {
+    await persistListing(listing);
+  }
+  await refreshAllListings();
+  resetAdminForm();
+  renderAdminTable();
+  alert("Saved — " + (firebaseReady ? "live for everyone now." : "visible on this browser for now (connect Firebase to make it live for everyone)."));
+}
+
+function editListing(id){
+  const l = listings.find(x => x.id === id);
+  if(!l) return;
+  document.getElementById("adminEditId").value = l.id;
+  document.getElementById("adminFormTitle").textContent = "Edit listing";
+  document.getElementById("admName").value = l.name;
+  document.getElementById("admCategory").value = l.category;
+  document.getElementById("admLocation").value = l.location;
+  document.getElementById("admPrice").value = l.price || "";
+  document.getElementById("admCapacity").value = l.capacity;
+  document.getElementById("admLat").value = l.lat;
+  document.getElementById("admLng").value = l.lng;
+  document.getElementById("admDescription").value = l.description;
+  document.getElementById("admImages").value = l.images.join("\n");
+  document.getElementById("admAmenities").value = l.amenities.join(", ");
+  document.getElementById("admRooms").value = (l.rooms || []).map(r => [r.name, r.price, r.capacity, r.image || ""].join(" | ")).join("\n");
+  document.getElementById("admVerified").checked = l.verified;
+  document.getElementById("admGuestFavorite").checked = l.guestFavorite;
+  document.getElementById("admHasOwnSystem").checked = l.hasOwnSystem;
+  document.getElementById("admOwnerEmail").value = l.ownerEmail || "";
+  document.getElementById("admExternalUrl").value = l.externalBookingUrl || "";
+  document.getElementById("admQuickAdd").checked = !!l.basic;
+  toggleQuickAdd();
+  toggleAdminBookingFields();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+async function deleteListing(id){
+  if(!confirm("Delete this listing? This can't be undone.")) return;
+  if(isDefaultId(id)){
+    const overrides = await fetchOverrides();
+    await persistOverride(id, {...(overrides[id]||{}), hidden:true});
+  } else {
+    await removeListing(id);
+  }
+  await refreshAllListings();
+  renderAdminTable();
+}
+
+function renderAdminTable(){
+  const el = document.getElementById("adminListingsTable");
+  if(listings.length === 0){
+    el.innerHTML = '<p style="color:var(--text-soft);font-size:14px;">No listings to show.</p>';
+    return;
+  }
+  el.innerHTML = listings.map(l => `
+    <div style="display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+      <img src="${l.images[0] || ''}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:var(--bg-soft);">
+      <div style="flex:1;">
+        <div style="font-weight:600;font-size:14.5px;">${l.name} ${isDefaultId(l.id) ? '<span style="font-weight:400;color:var(--text-soft);font-size:12px;">(sample)</span>' : ''}</div>
+        <div style="font-size:13px;color:var(--text-soft);">${l.category} · ${l.location} · ${l.price != null ? formatUGX(l.price) : "No price yet"}</div>
+      </div>
+      <button class="btn-ghost" onclick="editListing(${l.id})">Edit</button>
+      <button class="btn-ghost" onclick="deleteListing(${l.id})">Delete</button>
+    </div>
+  `).join("");
+}
+
+async function submitHostForm(e){
+  e.preventDefault();
+  const formData = new FormData();
+  formData.append("access_key", WEB3FORMS_ACCESS_KEY);
+  formData.append("subject", "New host submission — " + document.getElementById("hostPlaceName").value);
+  formData.append("place_name", document.getElementById("hostPlaceName").value);
+  formData.append("category", document.getElementById("hostCategory").value);
+  formData.append("location", document.getElementById("hostLocation").value);
+  formData.append("host_name", document.getElementById("hostName").value);
+  formData.append("host_phone", document.getElementById("hostPhone").value);
+  formData.append("host_email", document.getElementById("hostEmail").value);
+  formData.append("price", document.getElementById("hostPrice").value);
+  formData.append("description", document.getElementById("hostDescription").value);
+
+  const photoInput = document.getElementById("hostPhoto");
+  if(photoInput.files.length > 0){
+    const file = photoInput.files[0];
+    if(file.size > 5 * 1024 * 1024){
+      alert("That photo is over 5MB — please choose a smaller one, or just reply with it after submitting.");
+      return;
+    }
+    formData.append("attachment", file);
+  }
+
+  try{
+    // Replace WEB3FORMS_ACCESS_KEY above with your real key from web3forms.com
+    await fetch("https://api.web3forms.com/submit", { method:"POST", body: formData });
+  }catch(err){
+    console.log("Host form submission error (demo mode, no live key set):", err);
+  }
+
+  alert("Thanks — we've got your submission and will reach out on WhatsApp or email soon.");
+  document.getElementById("hostForm").reset();
+  showView("view-home");
+}
+
+/* ---------- Init ---------- */
+refreshAllListings();
+renderPartners();
+toggleAdminBookingFields();
+
+document.addEventListener("click", (e) => {
+  if(!e.target.closest(".field")){
+    document.getElementById("autocompleteList").style.display = "none";
+  }
+});
+</script>
+</body>
+</html>
