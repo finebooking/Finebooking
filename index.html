@@ -609,6 +609,46 @@
       </div>
 
       <div class="section-title">
+        <h2>Partners (Recommended banner)</h2>
+        <span></span>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:10px;">
+        <p style="font-size:13.5px;color:var(--text-soft);margin:0 0 14px;">These show in the "Recommended for your trip" banner near the top of the homepage. Guests tap a partner to open its link in a new tab.</p>
+        <div id="partnersAdminList" style="margin-bottom:16px;"></div>
+
+        <h3 id="partnerFormTitle" style="font-size:15px;margin-bottom:12px;">Add a partner</h3>
+        <form id="partnerForm" onsubmit="savePartnerFromAdmin(event)">
+          <input type="hidden" id="partnerEditId">
+          <div class="form-grid">
+            <div class="form-field full">
+              <label>Partner name</label>
+              <input type="text" id="partnerName" required placeholder="e.g. Nile Adventure Tours">
+            </div>
+            <div class="form-field">
+              <label>Where (area / city)</label>
+              <input type="text" id="partnerLocation" required placeholder="e.g. Jinja">
+            </div>
+            <div class="form-field">
+              <label>Short tagline (optional)</label>
+              <input type="text" id="partnerNote" placeholder="e.g. Rafting &amp; boat trips">
+            </div>
+            <div class="form-field full">
+              <label>Image URL (upload to Cloudinary/imgbb first, paste the link)</label>
+              <input type="text" id="partnerImage" required placeholder="https://...jpg">
+            </div>
+            <div class="form-field full">
+              <label>Where should tapping it go? (website, WhatsApp link, or just a phone number)</label>
+              <input type="text" id="partnerLink" placeholder="https://theirsite.com  or  +256 7...">
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px;">
+            <button type="submit" class="btn-primary" style="flex:1;padding:12px;">Save partner</button>
+            <button type="button" class="btn-ghost" onclick="resetPartnerForm()">Clear</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="section-title">
         <h2>Fix listing locations (one-time)</h2>
         <span></span>
       </div>
@@ -1054,10 +1094,13 @@ const defaultListings = [
   }
 ];
 
-const partners = [
+const samplePartners = [
   {name:"Nile Adventure Tours", category:"Partner", location:"Jinja", price:null, image:"https://images.unsplash.com/photo-1500534623283-312aade485b7?w=800", note:"White-water rafting & boat trips"},
   {name:"Kampala Boda Rides", category:"Partner", location:"Kampala-wide", price:null, image:"https://images.unsplash.com/photo-1558980664-10e7170b5df9?w=800", note:"Reliable rider partners for guests"}
 ];
+
+let partners = samplePartners.slice(); // replaced by real saved partners once you add any in Admin
+let partnersAreSamples = true;
 
 let locations = [...new Set(defaultListings.map(l => l.location))];
 let listings = defaultListings.slice(); // refreshAllListings() below fills this in properly (local or Firestore)
@@ -1230,6 +1273,14 @@ function goHome(){
   document.getElementById("navExplore").classList.add("active");
 }
 
+function normalizePartnerLink(u){
+  u = (u || "").trim();
+  if(!u) return "";
+  if(/^https?:\/\//i.test(u)) return u;
+  if(/^[+\d][\d\s\-()]{6,}$/.test(u)) return "https://wa.me/" + u.replace(/\D/g, ""); // a bare phone number opens WhatsApp
+  return "https://" + u;
+}
+
 function renderPartners(){
   const grid = document.getElementById("partnersGrid");
   grid.innerHTML = "";
@@ -1243,8 +1294,12 @@ function renderPartners(){
       </div>
       <div class="card-body">
         <div class="card-name">${p.name}</div>
-        <div class="card-loc">${p.location} — ${p.note}</div>
+        <div class="card-loc">${p.location}${p.note ? " — " + p.note : ""}</div>
       </div>`;
+    const link = normalizePartnerLink(p.link);
+    if(link){
+      card.addEventListener("click", () => window.open(link, "_blank"));
+    }
     grid.appendChild(card);
   });
 }
@@ -1475,6 +1530,112 @@ function updateEstimate(){
 function generateReference(){
   const rand = Math.floor(1000 + Math.random()*9000);
   return "FB-" + new Date().getFullYear() + "-" + rand;
+}
+
+/* --- Partners (Recommended banner): same Firestore-with-local-fallback pattern --- */
+async function fetchPartnersData(){
+  if(firebaseReady){
+    try{
+      const snap = await db.collection("partners").get();
+      return snap.docs.map(d => d.data());
+    }catch(err){ console.log("Firestore partners read failed, using local storage instead.", err); }
+  }
+  try{ return JSON.parse(localStorage.getItem("fb_partners") || "[]"); }catch(e){ return []; }
+}
+
+async function persistPartner(partner){
+  if(firebaseReady){
+    try{ await db.collection("partners").doc(String(partner.id)).set(partner); return; }
+    catch(err){ console.log("Firestore partner write failed, saving locally instead.", err); }
+  }
+  let local = [];
+  try{ local = JSON.parse(localStorage.getItem("fb_partners") || "[]"); }catch(e){}
+  const idx = local.findIndex(x => x.id === partner.id);
+  if(idx >= 0) local[idx] = partner; else local.push(partner);
+  localStorage.setItem("fb_partners", JSON.stringify(local));
+}
+
+async function removePartner(id){
+  if(firebaseReady){
+    try{ await db.collection("partners").doc(String(id)).delete(); return; }
+    catch(err){ console.log("Firestore partner delete failed, updating locally instead.", err); }
+  }
+  let local = [];
+  try{ local = JSON.parse(localStorage.getItem("fb_partners") || "[]"); }catch(e){}
+  localStorage.setItem("fb_partners", JSON.stringify(local.filter(x => x.id !== id)));
+}
+
+async function refreshPartners(){
+  const saved = await fetchPartnersData();
+  saved.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  partnersAreSamples = saved.length === 0;
+  partners = partnersAreSamples ? samplePartners.slice() : saved;
+  renderPartners();
+  renderPartnersAdmin();
+}
+
+function renderPartnersAdmin(){
+  const el = document.getElementById("partnersAdminList");
+  if(!el) return;
+  if(partnersAreSamples){
+    el.innerHTML = '<p style="color:var(--text-soft);font-size:13.5px;">The banner is currently showing sample partners. As soon as you save your first real partner, the samples disappear and only your real partners show.</p>';
+    return;
+  }
+  el.innerHTML = partners.map(p => `
+    <div style="display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+      <img src="${p.image}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:var(--bg-soft);">
+      <div style="flex:1;">
+        <div style="font-weight:600;font-size:14.5px;">${p.name}</div>
+        <div style="font-size:13px;color:var(--text-soft);">${p.location}${p.note ? " · " + p.note : ""}</div>
+      </div>
+      <button class="btn-ghost" onclick="editPartner(${p.id})">Edit</button>
+      <button class="btn-ghost" onclick="deletePartner(${p.id})">Delete</button>
+    </div>
+  `).join("");
+}
+
+function resetPartnerForm(){
+  document.getElementById("partnerForm").reset();
+  document.getElementById("partnerEditId").value = "";
+  document.getElementById("partnerFormTitle").textContent = "Add a partner";
+}
+
+async function savePartnerFromAdmin(e){
+  e.preventDefault();
+  const editId = document.getElementById("partnerEditId").value;
+  const existing = editId ? partners.find(x => x.id === Number(editId)) : null;
+  const partner = {
+    id: editId ? Number(editId) : Date.now(),
+    name: document.getElementById("partnerName").value.trim(),
+    location: document.getElementById("partnerLocation").value.trim(),
+    note: document.getElementById("partnerNote").value.trim(),
+    image: document.getElementById("partnerImage").value.trim(),
+    link: document.getElementById("partnerLink").value.trim(),
+    createdAt: existing && existing.createdAt ? existing.createdAt : Date.now()
+  };
+  await persistPartner(partner);
+  await refreshPartners();
+  resetPartnerForm();
+  alert("Partner saved — " + (firebaseReady ? "live on the site now." : "visible on this browser for now (connect Firebase to make it live for everyone)."));
+}
+
+function editPartner(id){
+  const p = partners.find(x => x.id === id);
+  if(!p) return;
+  document.getElementById("partnerEditId").value = p.id;
+  document.getElementById("partnerFormTitle").textContent = "Edit partner";
+  document.getElementById("partnerName").value = p.name;
+  document.getElementById("partnerLocation").value = p.location;
+  document.getElementById("partnerNote").value = p.note || "";
+  document.getElementById("partnerImage").value = p.image;
+  document.getElementById("partnerLink").value = p.link || "";
+  document.getElementById("partnerName").scrollIntoView({behavior:"smooth", block:"center"});
+}
+
+async function deletePartner(id){
+  if(!confirm("Remove this partner from the banner?")) return;
+  await removePartner(id);
+  await refreshPartners();
 }
 
 /* --- Booking requests: same Firestore-with-local-fallback pattern as listings --- */
@@ -2302,6 +2463,7 @@ async function submitHostForm(e){
 /* ---------- Init ---------- */
 refreshAllListings();
 renderPartners();
+refreshPartners();
 toggleAdminBookingFields();
 
 document.addEventListener("click", (e) => {
