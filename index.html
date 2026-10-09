@@ -4,12 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fine Booking — Stays across Uganda</title>
+<meta name="description" content="Find hotels, guesthouses, motels, Airbnbs and restaurants across Uganda. No accounts, no booking fees — message or book directly with the host.">
+<meta property="og:title" content="Fine Booking — Stays across Uganda">
+<meta property="og:description" content="Find hotels, guesthouses, motels, Airbnbs and restaurants across Uganda. No accounts, no booking fees.">
+<meta property="og:image" content="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=70&auto=format">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#E0475A">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Fine Booking">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://images.unsplash.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&family=Pacifico&display=swap" rel="stylesheet">
 
 <!-- Google Analytics (GA4) / Firebase Analytics — same measurement ID powers both -->
@@ -24,6 +31,7 @@
 <!-- Firebase — replace firebaseConfig further down (search FIREBASE_CONFIG) with your own project's config from console.firebase.google.com -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <style>
   :root{
     --bg:#FFFFFF;
@@ -376,7 +384,7 @@
         <div class="search-row">
           <div class="field">
             <label>Location</label>
-            <input type="text" id="locationInput" placeholder="Try Kololo, Jinja, Entebbe..." oninput="onLocationInput(this.value)" autocomplete="off">
+            <input type="text" id="locationInput" placeholder="Search a place name or area (e.g. Super Bistro, Jinja)..." oninput="onLocationInput(this.value)" autocomplete="off">
             <div id="autocompleteList" class="autocomplete-list"></div>
           </div>
         </div>
@@ -398,7 +406,7 @@
   <div class="wrap">
     <div id="curatedRows"></div>
 
-    <section class="partners">
+    <section class="partners" id="partnersSection">
       <div class="section-title">
         <h2>Recommended for your trip</h2>
         <span>Partner listings</span>
@@ -605,6 +613,19 @@
         <span></span>
       </div>
       <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:10px;">
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+          <select id="bookingsStatusFilter" onchange="renderBookingsTable()" style="border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;">
+            <option value="all">All statuses</option>
+            <option value="pending">Pending only</option>
+            <option value="confirmed">Confirmed only</option>
+            <option value="declined">Declined only</option>
+          </select>
+          <select id="bookingsTimeFilter" onchange="renderBookingsTable()" style="border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;">
+            <option value="all">All dates</option>
+            <option value="upcoming">Upcoming only</option>
+            <option value="past">Past only</option>
+          </select>
+        </div>
         <div id="bookingsTable"><p style="font-size:13.5px;color:var(--text-soft);">Loading...</p></div>
       </div>
 
@@ -761,8 +782,13 @@
             <textarea id="admDescription" required placeholder="A few sentences guests will read on the listing page..."></textarea>
           </div>
           <div class="form-field full">
-            <label>Image URLs (one per line — upload photos to Cloudinary/imgbb first, paste the links here)</label>
-            <textarea id="admImages" required placeholder="https://...jpg&#10;https://...jpg"></textarea>
+            <label>Upload photos directly (or paste links below instead)</label>
+            <input type="file" id="admImageFiles" accept="image/*" multiple onchange="updateRequiredAdminFields()">
+            <div id="admImageFilesProgress" style="margin-top:6px;"></div>
+          </div>
+          <div class="form-field full">
+            <label>Image URLs (one per line — only needed if you didn't upload photos above)</label>
+            <textarea id="admImages" placeholder="https://...jpg&#10;https://...jpg"></textarea>
           </div>
           <div class="form-field full">
             <label>Amenities (comma-separated)</label>
@@ -1004,6 +1030,8 @@ const FIREBASE_CONFIG = {
 };
 
 let db = null;
+let storage = null;
+let storageReady = false;
 let firebaseReady = false;
 let firebaseStatusReason = "";
 try{
@@ -1016,6 +1044,8 @@ try{
     db = firebase.firestore();
     firebaseReady = true;
     firebaseStatusReason = "Connected.";
+    try{ storage = firebase.storage(); storageReady = true; }
+    catch(storageErr){ console.log("Firebase Storage not available yet (enable it in the Firebase Console):", storageErr); }
   }
 }catch(err){
   console.log("Firebase not connected yet — using this browser's storage only.", err);
@@ -1027,19 +1057,19 @@ const defaultListings = [
   {
     id:1, name:"Kololo Garden Suites", category:"Airbnb", location:"Kololo, Kampala",
     price:180000, capacity:4, lat:0.3400, lng:32.5900, rating:4.9, guestFavorite:true,
-    images:["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800","https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800","https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800"],
+    images:["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=70&auto=format","https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=70&auto=format","https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=600&q=70&auto=format"],
     description:"A quiet two-bedroom apartment with a private garden, ten minutes from the city centre. Popular with business travellers who want space to actually breathe.",
     amenities:["Free WiFi","Backup generator","Private parking","Hot water","Kitchen"],
     rooms:[
-      {id:"r1", name:"Garden View Room", price:150000, capacity:2, image:"https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800"},
-      {id:"r2", name:"Family Suite", price:230000, capacity:4, image:"https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800"}
+      {id:"r1", name:"Garden View Room", price:150000, capacity:2, image:"https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=70&auto=format"},
+      {id:"r2", name:"Family Suite", price:230000, capacity:4, image:"https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=600&q=70&auto=format"}
     ],
     verified:true, hasOwnSystem:false, ownerEmail:"host1@example.com"
   },
   {
     id:2, name:"Lakeview Motel", category:"Motel", location:"Entebbe",
     price:70000, capacity:2, lat:0.0512, lng:32.4637, rating:4.6, guestFavorite:false,
-    images:["https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800","https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800"],
+    images:["https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=600&q=70&auto=format","https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600&q=70&auto=format"],
     description:"Simple, clean rooms a short boda ride from the airport — a solid option for a night before an early flight.",
     amenities:["Free WiFi","Airport pickup on request","Restaurant on site"],
     verified:true, hasOwnSystem:false, ownerEmail:"host2@example.com"
@@ -1047,7 +1077,7 @@ const defaultListings = [
   {
     id:3, name:"Jinja Nile Guesthouse", category:"Guesthouse", location:"Jinja",
     price:95000, capacity:3, lat:0.4479, lng:33.2026, rating:4.93, guestFavorite:true,
-    images:["https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800","https://images.unsplash.com/photo-1568495248636-6432b97bd949?w=800"],
+    images:["https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=600&q=70&auto=format","https://images.unsplash.com/photo-1568495248636-6432b97bd949?w=600&q=70&auto=format"],
     description:"A family-run guesthouse a few minutes' walk from the Nile, with a wide veranda made for slow mornings.",
     amenities:["Free WiFi","Garden","Breakfast included","Hot water"],
     verified:true, hasOwnSystem:false, ownerEmail:"host3@example.com"
@@ -1055,7 +1085,7 @@ const defaultListings = [
   {
     id:4, name:"Serena-style Business Hotel", category:"Hotel", location:"Nakasero, Kampala",
     price:320000, capacity:2, lat:0.3170, lng:32.5820, rating:4.8, guestFavorite:false,
-    images:["https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800","https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800"],
+    images:["https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600&q=70&auto=format","https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=600&q=70&auto=format"],
     description:"A polished business hotel with its own booking and payment system — requests here go straight to their platform.",
     amenities:["Free WiFi","Pool","Gym","Conference rooms","Restaurant"],
     verified:true, hasOwnSystem:true, externalBookingUrl:"https://example-hotel-booking.com"
@@ -1063,7 +1093,7 @@ const defaultListings = [
   {
     id:5, name:"Bunyonyi Hillside Cottage", category:"Airbnb", location:"Lake Bunyonyi",
     price:140000, capacity:5, lat:-1.2833, lng:29.9167, rating:4.7, guestFavorite:false,
-    images:["https://images.unsplash.com/photo-1499696010180-025ef6e1a8f9?w=800","https://images.unsplash.com/photo-1522798514-97ceb8c4f1c8?w=800"],
+    images:["https://images.unsplash.com/photo-1499696010180-025ef6e1a8f9?w=600&q=70&auto=format","https://images.unsplash.com/photo-1522798514-97ceb8c4f1c8?w=600&q=70&auto=format"],
     description:"A wooden cottage overlooking the lake, best reached with a bit of daylight left for the drive up.",
     amenities:["Fireplace","Lake view","Free WiFi","Kitchen"],
     verified:false, hasOwnSystem:false, ownerEmail:"host5@example.com"
@@ -1071,7 +1101,7 @@ const defaultListings = [
   {
     id:6, name:"Kabalagala Bites Restaurant", category:"Restaurant", location:"Kabalagala, Kampala",
     price:35000, capacity:6, lat:0.2939, lng:32.5978, rating:4.5, guestFavorite:true,
-    images:["https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800","https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800"],
+    images:["https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=70&auto=format","https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&q=70&auto=format"],
     description:"Local and continental dishes, best known for its grilled tilapia. Reservations recommended on weekends.",
     amenities:["Outdoor seating","Live band Fridays","Parking"],
     verified:true, hasOwnSystem:false, ownerEmail:"host6@example.com"
@@ -1079,7 +1109,7 @@ const defaultListings = [
   {
     id:7, name:"Airport Junction Motel", category:"Motel", location:"Entebbe Road",
     price:60000, capacity:2, lat:0.1200, lng:32.5100, rating:4.2, guestFavorite:false,
-    images:["https://images.unsplash.com/photo-1590073242678-70ee3fc28f8e?w=800","https://images.unsplash.com/photo-1595576508898-0ad5c879a061?w=800"],
+    images:["https://images.unsplash.com/photo-1590073242678-70ee3fc28f8e?w=600&q=70&auto=format","https://images.unsplash.com/photo-1595576508898-0ad5c879a061?w=600&q=70&auto=format"],
     description:"No-frills rooms right off the main road, good for a short stopover.",
     amenities:["Free WiFi","24hr reception"],
     verified:false, hasOwnSystem:false, ownerEmail:"host7@example.com"
@@ -1087,7 +1117,7 @@ const defaultListings = [
   {
     id:8, name:"Muyenga Rooftop Apartment", category:"Airbnb", location:"Muyenga, Kampala",
     price:210000, capacity:3, lat:0.2986, lng:32.6089, rating:5.0, guestFavorite:true,
-    images:["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800","https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800"],
+    images:["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=70&auto=format","https://images.unsplash.com/photo-1484154218962-a197022b5858?w=600&q=70&auto=format"],
     description:"A rooftop one-bedroom with a view over the city, a short drive from Kabalagala's restaurants.",
     amenities:["Rooftop terrace","Free WiFi","Backup generator","Hot water"],
     verified:true, hasOwnSystem:false, ownerEmail:"host8@example.com"
@@ -1095,8 +1125,8 @@ const defaultListings = [
 ];
 
 const samplePartners = [
-  {name:"Nile Adventure Tours", category:"Partner", location:"Jinja", price:null, image:"https://images.unsplash.com/photo-1500534623283-312aade485b7?w=800", note:"White-water rafting & boat trips"},
-  {name:"Kampala Boda Rides", category:"Partner", location:"Kampala-wide", price:null, image:"https://images.unsplash.com/photo-1558980664-10e7170b5df9?w=800", note:"Reliable rider partners for guests"}
+  {name:"Nile Adventure Tours", category:"Partner", location:"Jinja", price:null, image:"https://images.unsplash.com/photo-1500534623283-312aade485b7?w=600&q=70&auto=format", note:"White-water rafting & boat trips"},
+  {name:"Kampala Boda Rides", category:"Partner", location:"Kampala-wide", price:null, image:"https://images.unsplash.com/photo-1558980664-10e7170b5df9?w=600&q=70&auto=format", note:"Reliable rider partners for guests"}
 ];
 
 let partners = samplePartners.slice(); // replaced by real saved partners once you add any in Admin
@@ -1114,6 +1144,8 @@ function showView(id){
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.getElementById(id).classList.add("active");
   window.scrollTo({top:0, behavior:"smooth"});
+  if(id !== "view-listing" && location.hash) history.replaceState(null, "", location.pathname + location.search);
+  if(id !== "view-listing") document.title = "Fine Booking — Stays across Uganda";
   if(typeof gtag === "function"){
     gtag('event', 'page_view', { page_title: id, page_path: "/" + id });
   }
@@ -1154,7 +1186,7 @@ function cardHTML(l){
   return `
     <div class="card" onclick="openListing(${l.id})">
       <div class="card-img">
-        <img src="${l.images[0]}" alt="${l.name}" loading="lazy">
+        <img src="${l.images[0]}" alt="${l.name}" loading="lazy" decoding="async">
         ${l.basic ? '<span class="badge">Location only</span>' : (l.guestFavorite ? '<span class="badge">Guest favorite</span>' : (l.verified ? '<span class="badge">Verified</span>' : ''))}
         <button class="save-btn ${saved ? 'saved' : ''}" onclick="toggleSave(${l.id}, this, event)">${saved ? '♥' : '♡'}</button>
       </div>
@@ -1171,7 +1203,10 @@ function cardHTML(l){
 
 function renderCuratedRows(){
   const container = document.getElementById("curatedRows");
-  if(state.category !== "all" || state.locationFilter || state.sortByDistance){
+  const partnersSection = document.getElementById("partnersSection");
+  const isFiltered = state.category !== "all" || state.locationFilter || state.sortByDistance;
+  if(partnersSection) partnersSection.style.display = isFiltered ? "none" : "";
+  if(isFiltered){
     container.innerHTML = "";
     return;
   }
@@ -1205,9 +1240,10 @@ function renderListings(){
 
   let items = listings.filter(l => {
     const catOk = state.category === "all" || l.category === state.category;
-    const locOk = !state.locationFilter || l.location.toLowerCase().includes(state.locationFilter.toLowerCase());
+    const query = state.locationFilter.toLowerCase();
+    const searchOk = !query || l.location.toLowerCase().includes(query) || l.name.toLowerCase().includes(query);
     const priceOk = l.price <= state.maxPrice;
-    return catOk && locOk && priceOk;
+    return catOk && searchOk && priceOk;
   });
 
   if(state.sortByDistance && state.userCoords){
@@ -1289,7 +1325,7 @@ function renderPartners(){
     card.className = "card";
     card.innerHTML = `
       <div class="card-img">
-        <img src="${p.image}" alt="${p.name}" loading="lazy">
+        <img src="${p.image}" alt="${p.name}" loading="lazy" decoding="async">
         <span class="badge sponsored">Partner</span>
       </div>
       <div class="card-body">
@@ -1323,9 +1359,13 @@ function onLocationInput(val){
   state.locationFilter = val;
   const list = document.getElementById("autocompleteList");
   if(!val){ list.style.display = "none"; renderListings(); return; }
-  const matches = locations.filter(loc => loc.toLowerCase().includes(val.toLowerCase()));
-  if(matches.length === 0){ list.style.display = "none"; renderListings(); return; }
-  list.innerHTML = matches.map(m => `<div onclick="selectLocation('${m.replace(/'/g,"\\'")}')">${m}</div>`).join("");
+  const q = val.toLowerCase();
+  const areaMatches = locations.filter(loc => loc.toLowerCase().includes(q)).slice(0, 5);
+  const nameMatches = listings.filter(l => l.name.toLowerCase().includes(q)).slice(0, 5);
+  if(areaMatches.length === 0 && nameMatches.length === 0){ list.style.display = "none"; renderListings(); return; }
+  list.innerHTML =
+    areaMatches.map(m => `<div onclick="selectLocation('${m.replace(/'/g,"\\'")}')">📍 ${m}</div>`).join("") +
+    nameMatches.map(l => `<div onclick="selectLocation('${l.name.replace(/'/g,"\\'")}')">${l.category === "Restaurant" ? "🍽️" : "🏨"} ${l.name}</div>`).join("");
   list.style.display = "block";
   renderListings();
 }
@@ -1379,10 +1419,10 @@ function openListing(id){
 
   el.innerHTML = `
     <div class="gallery">
-      <img src="${l.images[0]}" alt="${l.name}">
+      <img src="${l.images[0]}" alt="${l.name}" loading="lazy" decoding="async">
       <div class="gallery-side">
-        <img src="${l.images[1] || l.images[0]}" alt="">
-        <img src="${l.images[2] || l.images[0]}" alt="">
+        <img src="${l.images[1] || l.images[0]}" alt="" loading="lazy" decoding="async">
+        <img src="${l.images[2] || l.images[0]}" alt="" loading="lazy" decoding="async">
       </div>
     </div>
     <div class="detail-grid">
@@ -1420,6 +1460,16 @@ function openListing(id){
           </div>
           <div class="directions-row">
             <a class="btn-ghost" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}">Get directions</a>
+            <button class="btn-ghost" onclick="shareListing(${l.id}, '${l.name.replace(/'/g,"\\'")}')">Share this place</button>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h3>Reviews</h3>
+          <div id="reviewsList"><p style="font-size:13.5px;color:var(--text-soft);">Loading reviews...</p></div>
+          <div style="margin-top:14px;">
+            <button class="btn-ghost" onclick="toggleReviewForm()">Write a review</button>
+            <div id="reviewFormBox" style="display:none;margin-top:12px;"></div>
           </div>
         </div>
       </div>
@@ -1432,12 +1482,24 @@ function openListing(id){
     </div>
   `;
   showView("view-listing");
+  history.replaceState(null, "", location.pathname + location.search + "#listing-" + l.id);
+  document.title = l.name + " — Fine Booking";
+  loadReviewsForListing(l.id);
+}
+
+function shareListing(id, name){
+  const url = location.origin + location.pathname + "#listing-" + id;
+  if(navigator.share){
+    navigator.share({ title: name + " — Fine Booking", url }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(url).then(() => alert("Link copied — paste it anywhere to share " + name + "."));
+  }
 }
 
 function roomTypeListHTML(l){
   return l.rooms.map(r => `
     <div onclick="selectRoom(${l.id}, '${r.id}')" style="display:flex;gap:12px;align-items:center;border:1px solid ${selectedRoomId === r.id ? 'var(--accent)' : 'var(--border)'};border-radius:12px;padding:10px;margin-bottom:10px;cursor:pointer;">
-      <img src="${r.image || l.images[0]}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+      <img src="${r.image || l.images[0]}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0;" loading="lazy" decoding="async">
       <div style="flex:1;">
         <div style="font-weight:600;font-size:14.5px;">${r.name}</div>
         <div style="font-size:12.8px;color:var(--text-soft);">Fits ${r.capacity} guests</div>
@@ -1583,7 +1645,7 @@ function renderPartnersAdmin(){
   }
   el.innerHTML = partners.map(p => `
     <div style="display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
-      <img src="${p.image}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:var(--bg-soft);">
+      <img src="${p.image}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:var(--bg-soft);" loading="lazy" decoding="async">
       <div style="flex:1;">
         <div style="font-weight:600;font-size:14.5px;">${p.name}</div>
         <div style="font-size:13px;color:var(--text-soft);">${p.location}${p.note ? " · " + p.note : ""}</div>
@@ -1681,6 +1743,94 @@ async function updateBookingStatus(reference, status){
   const local = fetchLocalBookings();
   const idx = local.findIndex(b => b.reference === reference);
   if(idx >= 0){ local[idx].status = status; localStorage.setItem("fb_bookings", JSON.stringify(local)); }
+}
+
+/* --- Reviews: same Firestore-with-local-fallback pattern as bookings/partners --- */
+async function fetchReviewsForListing(listingId){
+  if(firebaseReady){
+    try{
+      const snap = await db.collection("reviews").where("listingId", "==", listingId).get();
+      return snap.docs.map(d => d.data()).sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+    }catch(err){ console.log("Firestore reviews read failed, using local storage instead.", err); }
+  }
+  let local = [];
+  try{ local = JSON.parse(localStorage.getItem("fb_reviews") || "[]"); }catch(e){}
+  return local.filter(r => r.listingId === listingId).sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+}
+
+async function persistReview(review){
+  if(firebaseReady){
+    try{ await db.collection("reviews").add(review); return; }
+    catch(err){ console.log("Firestore review write failed, saving locally instead.", err); }
+  }
+  let local = [];
+  try{ local = JSON.parse(localStorage.getItem("fb_reviews") || "[]"); }catch(e){}
+  local.push(review);
+  localStorage.setItem("fb_reviews", JSON.stringify(local));
+}
+
+function starsHTML(rating){
+  const full = Math.round(rating);
+  return "★".repeat(full) + "☆".repeat(5 - full);
+}
+
+async function loadReviewsForListing(listingId){
+  const box = document.getElementById("reviewsList");
+  if(!box) return;
+  const reviews = await fetchReviewsForListing(listingId);
+  if(reviews.length === 0){
+    box.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">No reviews yet — be the first to share how your stay/meal went.</p>';
+    return;
+  }
+  const avg = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+  box.innerHTML = `
+    <div style="font-weight:600;font-size:15px;margin-bottom:10px;">${avg.toFixed(1)} <span style="color:var(--gold);">${starsHTML(avg)}</span> <span style="font-weight:400;color:var(--text-soft);font-size:13px;">(${reviews.length} review${reviews.length===1?"":"s"})</span></div>
+    ${reviews.map(r => `
+      <div style="border-top:1px solid var(--border);padding:10px 0;">
+        <div style="font-weight:600;font-size:13.8px;">${r.guestName} <span style="color:var(--gold);font-weight:400;">${starsHTML(r.rating)}</span></div>
+        <p style="font-size:13.5px;color:var(--text-soft);margin:4px 0 0;">${r.comment}</p>
+      </div>
+    `).join("")}
+  `;
+}
+
+function toggleReviewForm(){
+  const box = document.getElementById("reviewFormBox");
+  const isOpen = box.style.display === "block";
+  if(isOpen){ box.style.display = "none"; return; }
+  box.innerHTML = `
+    <div class="form-field full" style="margin-bottom:10px;">
+      <label>Your name</label>
+      <input type="text" id="reviewName">
+    </div>
+    <div class="form-field full" style="margin-bottom:10px;">
+      <label>Rating</label>
+      <select id="reviewRating">
+        <option value="5">★★★★★ Excellent</option>
+        <option value="4">★★★★☆ Good</option>
+        <option value="3">★★★☆☆ Okay</option>
+        <option value="2">★★☆☆☆ Poor</option>
+        <option value="1">★☆☆☆☆ Bad</option>
+      </select>
+    </div>
+    <div class="form-field full" style="margin-bottom:10px;">
+      <label>Your review</label>
+      <textarea id="reviewComment" placeholder="How was your stay or meal?"></textarea>
+    </div>
+    <button class="btn-primary" style="width:100%;padding:11px;" onclick="submitReview(${currentListingId})">Submit review</button>
+  `;
+  box.style.display = "block";
+}
+
+async function submitReview(listingId){
+  const name = document.getElementById("reviewName").value.trim();
+  const comment = document.getElementById("reviewComment").value.trim();
+  const rating = Number(document.getElementById("reviewRating").value);
+  if(!name || !comment){ alert("Please add your name and a short review."); return; }
+
+  await persistReview({ listingId, guestName: name, rating, comment, createdAt: Date.now() });
+  document.getElementById("reviewFormBox").style.display = "none";
+  loadReviewsForListing(listingId);
 }
 
 function statusBadgeHTML(status){
@@ -1934,15 +2084,29 @@ function checkAdminPassword(){
 async function renderBookingsTable(){
   const el = document.getElementById("bookingsTable");
   const badge = document.getElementById("pendingCountBadge");
-  const bookings = await fetchAllBookings();
+  const allBookings = await fetchAllBookings();
 
-  const pendingCount = bookings.filter(b => b.status === "pending" || !b.status).length;
+  const pendingCount = allBookings.filter(b => b.status === "pending" || !b.status).length;
   badge.innerHTML = pendingCount > 0
     ? `<span style="background:var(--accent);color:#fff;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;vertical-align:middle;">${pendingCount} pending</span>`
     : "";
 
-  if(bookings.length === 0){
+  const statusFilter = document.getElementById("bookingsStatusFilter").value;
+  const timeFilter = document.getElementById("bookingsTimeFilter").value;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const bookings = allBookings.filter(b => {
+    const statusOk = statusFilter === "all" || (b.status || "pending") === statusFilter;
+    const timeOk = timeFilter === "all" || (timeFilter === "upcoming" ? b.checkIn >= today : b.checkIn < today);
+    return statusOk && timeOk;
+  });
+
+  if(allBookings.length === 0){
     el.innerHTML = '<p style="color:var(--text-soft);font-size:14px;">No booking requests yet.</p>';
+    return;
+  }
+  if(bookings.length === 0){
+    el.innerHTML = '<p style="color:var(--text-soft);font-size:14px;">No requests match that filter.</p>';
     return;
   }
 
@@ -2229,7 +2393,7 @@ async function bulkAddSelected(){
       guestFavorite: false,
       verified: false,
       description: "Details coming soon — contact us to enquire.",
-      images: ["https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800"],
+      images: ["https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600&q=70&auto=format"],
       amenities: [],
       hasOwnSystem: false,
       ownerEmail: "",
@@ -2296,9 +2460,11 @@ function updateRequiredAdminFields(){
   const quick = document.getElementById("admQuickAdd").checked;
   const hasOwn = document.getElementById("admHasOwnSystem").checked;
   const relaxed = quick || hasOwn;
-  ["admPrice","admDescription","admImages"].forEach(id => {
+  ["admPrice","admDescription"].forEach(id => {
     document.getElementById(id).required = !relaxed;
   });
+  const filesChosen = document.getElementById("admImageFiles").files.length > 0;
+  document.getElementById("admImages").required = !relaxed && !filesChosen;
 }
 
 function toggleQuickAdd(){
@@ -2316,8 +2482,16 @@ function resetAdminForm(){
   document.getElementById("adminForm").reset();
   document.getElementById("adminEditId").value = "";
   document.getElementById("adminFormTitle").textContent = "Add a new listing";
+  document.getElementById("admImageFilesProgress").innerHTML = "";
   toggleAdminBookingFields();
   toggleQuickAdd();
+}
+
+async function uploadImageToStorage(file, pathPrefix){
+  if(!storageReady) throw new Error("Firebase Storage isn't enabled yet (Firebase Console → Storage → Get started).");
+  const ref = storage.ref().child(pathPrefix + "/" + Date.now() + "-" + file.name.replace(/\s+/g, "_"));
+  await ref.put(file);
+  return await ref.getDownloadURL();
 }
 
 async function saveListingFromAdmin(e){
@@ -2325,7 +2499,30 @@ async function saveListingFromAdmin(e){
   const editId = document.getElementById("adminEditId").value;
   const hasOwn = document.getElementById("admHasOwnSystem").checked;
   const isQuick = document.getElementById("admQuickAdd").checked;
-  const PLACEHOLDER_IMG = "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800";
+  const PLACEHOLDER_IMG = "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600&q=70&auto=format";
+
+  const files = Array.from(document.getElementById("admImageFiles").files);
+  let uploadedUrls = [];
+  if(files.length > 0){
+    const progressEl = document.getElementById("admImageFilesProgress");
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    for(let i = 0; i < files.length; i++){
+      progressEl.innerHTML = `<p style="font-size:12.5px;color:var(--text-soft);">Uploading photo ${i+1} of ${files.length}...</p>`;
+      try{
+        const url = await uploadImageToStorage(files[i], "listings");
+        uploadedUrls.push(url);
+      }catch(err){
+        console.log("Photo upload failed:", err);
+        alert("One of your photos didn't upload: " + err.message + "\\nYou can still paste a link for it instead, or try again.");
+      }
+    }
+    progressEl.innerHTML = uploadedUrls.length > 0 ? `<p style="font-size:12.5px;color:var(--accent-dark);">✓ ${uploadedUrls.length} photo(s) uploaded.</p>` : "";
+    submitBtn.disabled = false;
+  }
+
+  const pastedUrls = document.getElementById("admImages").value.split("\n").map(s => s.trim()).filter(Boolean);
+  const allImages = uploadedUrls.concat(pastedUrls);
 
   const listing = {
     id: editId ? Number(editId) : Date.now(),
@@ -2341,9 +2538,7 @@ async function saveListingFromAdmin(e){
     guestFavorite: document.getElementById("admGuestFavorite").checked,
     verified: document.getElementById("admVerified").checked,
     description: document.getElementById("admDescription").value || (hasOwn ? "Full details, photos and pricing are on their own booking site — tap below to view and book." : "Details coming soon — contact us to enquire."),
-    images: document.getElementById("admImages").value.split("\n").map(s => s.trim()).filter(Boolean).length
-      ? document.getElementById("admImages").value.split("\n").map(s => s.trim()).filter(Boolean)
-      : [PLACEHOLDER_IMG],
+    images: allImages.length ? allImages : [PLACEHOLDER_IMG],
     amenities: document.getElementById("admAmenities").value.split(",").map(s => s.trim()).filter(Boolean),
     rooms: document.getElementById("admRooms").value.split("\n").map(s => s.trim()).filter(Boolean).map((line, i) => {
       const parts = line.split("|").map(p => p.trim());
@@ -2413,7 +2608,7 @@ function renderAdminTable(){
   }
   el.innerHTML = listings.map(l => `
     <div style="display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
-      <img src="${l.images[0] || ''}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:var(--bg-soft);">
+      <img src="${l.images[0] || ''}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:var(--bg-soft);" loading="lazy" decoding="async">
       <div style="flex:1;">
         <div style="font-weight:600;font-size:14.5px;">${l.name} ${isDefaultId(l.id) ? '<span style="font-weight:400;color:var(--text-soft);font-size:12px;">(sample)</span>' : ''}</div>
         <div style="font-size:13px;color:var(--text-soft);">${l.category} · ${l.location} · ${l.price != null ? formatUGX(l.price) : "No price yet"}</div>
@@ -2461,7 +2656,13 @@ async function submitHostForm(e){
 }
 
 /* ---------- Init ---------- */
-refreshAllListings();
+refreshAllListings().then(() => {
+  const match = location.hash.match(/^#listing-(.+)$/);
+  if(match){
+    const target = listings.find(l => String(l.id) === match[1]);
+    if(target) openListing(target.id);
+  }
+});
 renderPartners();
 refreshPartners();
 toggleAdminBookingFields();
