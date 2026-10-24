@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fine Booking UG — Hotels, Airbnbs and Accomodation across Uganda</title>
+<title>Fine Booking — Stays across Uganda</title>
 <meta name="description" content="Find hotels, guesthouses, motels, Airbnbs and restaurants across Uganda. No accounts, no booking fees — message or book directly with the host.">
-<meta property="og:title" content="Fine Booking UG — Stays across Uganda">
+<meta property="og:title" content="Fine Booking — Stays across Uganda">
 <meta property="og:description" content="Find hotels, guesthouses, motels, Airbnbs and restaurants across Uganda. No accounts, no booking fees.">
 <meta property="og:image" content="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=70&auto=format">
 <meta property="og:type" content="website">
@@ -252,9 +252,20 @@
   .back-link:active{transform:scale(0.97);}
 
   /* Listing detail */
-  .gallery{display:grid;grid-template-columns:1.4fr 1fr;gap:8px;border-radius:var(--radius-lg);overflow:hidden;margin-bottom:26px;}
-  .gallery img{width:100%;height:100%;object-fit:cover;}
+  .gallery{display:grid;grid-template-columns:1.4fr 1fr;gap:8px;border-radius:var(--radius-lg);overflow:hidden;margin-bottom:26px;height:340px;cursor:pointer;}
+  .gallery img{width:100%;height:100%;object-fit:cover;display:block;}
   .gallery-side{display:grid;grid-template-rows:1fr 1fr;gap:8px;}
+  .gallery-side.quad{grid-template-rows:1fr 1fr;grid-template-columns:1fr 1fr;}
+  .gallery-thumb{position:relative;overflow:hidden;}
+  .gallery-more-badge{position:absolute;inset:0;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;}
+  @media (max-width:720px){ .gallery{height:240px;} }
+  .lightbox{position:fixed;inset:0;background:rgba(10,10,10,.94);z-index:300;display:flex;align-items:center;justify-content:center;flex-direction:column;}
+  .lightbox img{max-width:92vw;max-height:78vh;object-fit:contain;border-radius:8px;}
+  .lightbox-close{position:absolute;top:18px;right:20px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1;}
+  .lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:none;color:#fff;font-size:26px;width:46px;height:46px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .lightbox-prev{left:14px;}
+  .lightbox-next{right:14px;}
+  .lightbox-counter{color:#fff;font-size:13.5px;margin-top:14px;opacity:.85;}
   .detail-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:48px;align-items:start;}
   .detail-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:16px;}
   .detail-head h1{font-size:26px;}
@@ -263,6 +274,16 @@
   .detail-section{border-top:1px solid var(--border);padding:22px 0;}
   .detail-section h3{font-size:16px;margin-bottom:10px;}
   .detail-section p{color:var(--text-soft);font-size:14.5px;}
+  .room-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .room-card{border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .15s;}
+  .room-card.selected{border-color:var(--accent);border-width:2px;}
+  .room-card-img{height:130px;background:#f2f2f2;}
+  .room-card-img img{width:100%;height:100%;object-fit:cover;display:block;}
+  .room-card-body{padding:10px 12px 12px;}
+  .room-card-name{font-weight:600;font-size:14.5px;}
+  .room-card-cap{font-size:12.5px;color:var(--text-soft);margin-top:2px;}
+  .room-card-price{font-weight:600;font-size:14.5px;margin-top:6px;}
+  @media (max-width:520px){ .room-grid{grid-template-columns:1fr 1fr;gap:10px;} .room-card-img{height:100px;} }
   .amenity-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .amenity{font-size:14px;color:var(--text);display:flex;align-items:center;gap:8px;}
   .amenity::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);}
@@ -602,7 +623,7 @@
       <p style="color:var(--text-soft);font-size:14px;margin-bottom:18px;">Enter your admin password to manage listings.</p>
       <input type="password" id="adminPasswordInput" placeholder="Password" style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:16px;margin-bottom:12px;">
       <button class="btn-primary" style="width:100%;padding:11px;" onclick="checkAdminPassword()">Enter</button>
-      <p style="font-size:12px;color:var(--text-soft);margin-top:14px;">Enter password.</p>
+      <p style="font-size:12px;color:var(--text-soft);margin-top:14px;">Note: this is a basic screen lock for a demo, not real security — don't rely on it to protect sensitive data.</p>
     </div>
 
     <div id="adminPanel" style="display:none;">
@@ -967,9 +988,6 @@
   </button>
   <button class="nav-item" id="navTerms" onclick="showView('view-terms')">
     <span class="ic">ⓘ</span> Terms
-  </button>
-  <button class="nav-item" id="navAdmin" onclick="openAdmin()">
-    <span class="ic">⚙</span> Admin
   </button>
 </nav>
 
@@ -1563,28 +1581,72 @@ function openListing(id){
   loadReviewsForListing(l.id);
 }
 
+let currentGalleryImages = [];
+let lightboxIndex = 0;
+
+// Medium-height hero photo + up to 4 thumbnails (Airbnb-style preview).
+// Every photo is independently clickable and opens the full lightbox —
+// no cap on how many photos a listing can have, only how many show in
+// the preview grid before a "+N photos" badge takes over the last tile.
 function galleryHTML(images, name){
   const imgs = (images && images.length) ? images : [];
-  if(imgs.length <= 1){
-    return `<div class="gallery" style="grid-template-columns:1fr;">
-      <img src="${imgs[0] || ''}" alt="${name || ''}" loading="lazy" decoding="async">
-    </div>`;
+  currentGalleryImages = imgs;
+  if(imgs.length === 0){
+    return `<div class="gallery" style="grid-template-columns:1fr;"><img src="" alt="${name || ''}"></div>`;
   }
-  if(imgs.length === 2){
-    return `<div class="gallery">
+  if(imgs.length === 1){
+    return `<div class="gallery" style="grid-template-columns:1fr;" onclick="openLightbox(0)">
       <img src="${imgs[0]}" alt="${name || ''}" loading="lazy" decoding="async">
-      <div class="gallery-side" style="grid-template-rows:1fr;">
-        <img src="${imgs[1]}" alt="" loading="lazy" decoding="async">
-      </div>
     </div>`;
   }
+  const thumbs = imgs.slice(1, 5);
+  const extra = imgs.length - 1 - thumbs.length;
+  const thumbsHTML = thumbs.map((src, i) => {
+    const idx = i + 1;
+    const isLast = i === thumbs.length - 1;
+    return `<div class="gallery-thumb" onclick="event.stopPropagation();openLightbox(${idx})">
+      <img src="${src}" alt="" loading="lazy" decoding="async">
+      ${ (isLast && extra > 0) ? `<div class="gallery-more-badge">+${extra} photo${extra===1?'':'s'}</div>` : '' }
+    </div>`;
+  }).join("");
+  const sideClass = thumbs.length > 2 ? "gallery-side quad" : "gallery-side";
   return `<div class="gallery">
-    <img src="${imgs[0]}" alt="${name || ''}" loading="lazy" decoding="async">
-    <div class="gallery-side">
-      <img src="${imgs[1]}" alt="" loading="lazy" decoding="async">
-      <img src="${imgs[2]}" alt="" loading="lazy" decoding="async">
-    </div>
+    <img src="${imgs[0]}" alt="${name || ''}" loading="lazy" decoding="async" onclick="openLightbox(0)">
+    <div class="${sideClass}">${thumbsHTML}</div>
   </div>`;
+}
+
+function openLightbox(index){
+  if(!currentGalleryImages.length) return;
+  lightboxIndex = index;
+  renderLightbox();
+}
+function renderLightbox(){
+  let box = document.getElementById("lightboxOverlay");
+  if(!box){
+    box = document.createElement("div");
+    box.id = "lightboxOverlay";
+    box.className = "lightbox";
+    document.body.appendChild(box);
+  }
+  box.innerHTML = `
+    <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+    ${currentGalleryImages.length > 1 ? '<button class="lightbox-nav lightbox-prev" onclick="lightboxStep(-1)">‹</button>' : ''}
+    <img src="${currentGalleryImages[lightboxIndex]}" alt="">
+    ${currentGalleryImages.length > 1 ? '<button class="lightbox-nav lightbox-next" onclick="lightboxStep(1)">›</button>' : ''}
+    <div class="lightbox-counter">${lightboxIndex + 1} / ${currentGalleryImages.length}</div>
+  `;
+  box.style.display = "flex";
+  document.body.style.overflow = "hidden";
+}
+function lightboxStep(dir){
+  lightboxIndex = (lightboxIndex + dir + currentGalleryImages.length) % currentGalleryImages.length;
+  renderLightbox();
+}
+function closeLightbox(){
+  const box = document.getElementById("lightboxOverlay");
+  if(box) box.style.display = "none";
+  document.body.style.overflow = "";
 }
 
 function contactButtonsHTML(l){
@@ -1607,17 +1669,41 @@ function shareListing(id, name){
   }
 }
 
+// Each room gets its own proper card: photo + name + capacity, and a price
+// ONLY if one was set — leave a room's price blank/0 in Admin for an
+// apartment-style "Bedroom 1 / Kitchen" labeled photo with no separate price.
 function roomTypeListHTML(l){
-  return l.rooms.map(r => `
-    <div onclick="selectRoom(${l.id}, '${r.id}')" style="display:flex;gap:12px;align-items:center;border:1px solid ${selectedRoomId === r.id ? 'var(--accent)' : 'var(--border)'};border-radius:12px;padding:10px;margin-bottom:10px;cursor:pointer;">
-      <img src="${r.image || l.images[0]}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0;" loading="lazy" decoding="async">
-      <div style="flex:1;">
-        <div style="font-weight:600;font-size:14.5px;">${r.name}</div>
-        <div style="font-size:12.8px;color:var(--text-soft);">Fits ${r.capacity} guests</div>
+  const cards = l.rooms.map(r => {
+    const img = r.image || l.images[0] || "";
+    const priced = r.price && r.price > 0;
+    const imgOnclick = img ? `event.stopPropagation();viewRoomPhoto('${img.replace(/'/g,"\\'")}')` : "";
+    return `
+    <div class="room-card ${selectedRoomId === r.id ? 'selected' : ''}" onclick="selectRoom(${l.id}, '${r.id}')">
+      <div class="room-card-img" onclick="${imgOnclick}">
+        <img src="${img}" alt="${r.name}" loading="lazy" decoding="async">
       </div>
-      <div style="font-weight:600;font-size:14px;white-space:nowrap;">${formatUGX(r.price)}</div>
-    </div>
-  `).join("");
+      <div class="room-card-body">
+        <div class="room-card-name">${r.name}</div>
+        <div class="room-card-cap">Fits ${r.capacity} guests</div>
+        ${priced ? `<div class="room-card-price">${formatUGX(r.price)}</div>` : ``}
+      </div>
+    </div>`;
+  }).join("");
+  return `<div class="room-grid">${cards}</div>`;
+}
+
+function viewRoomPhoto(src){
+  if(!src) return;
+  let box = document.getElementById("lightboxOverlay");
+  if(!box){
+    box = document.createElement("div");
+    box.id = "lightboxOverlay";
+    box.className = "lightbox";
+    document.body.appendChild(box);
+  }
+  box.innerHTML = `<button class="lightbox-close" onclick="closeLightbox()">✕</button><img src="${src}" alt="">`;
+  box.style.display = "flex";
+  document.body.style.overflow = "hidden";
 }
 
 function selectRoom(listingId, roomId){
