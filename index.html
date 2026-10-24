@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fine Booking UG — Hotels, Airbnbs and Accomodation across Uganda</title>
+<title>Fine Booking — Stays across Uganda</title>
 <meta name="description" content="Find hotels, guesthouses, motels, Airbnbs and restaurants across Uganda. No accounts, no booking fees — message or book directly with the host.">
-<meta property="og:title" content="Fine Booking UG — Stays across Uganda">
+<meta property="og:title" content="Fine Booking — Stays across Uganda">
 <meta property="og:description" content="Find hotels, guesthouses, motels, Airbnbs and restaurants across Uganda. No accounts, no booking fees.">
 <meta property="og:image" content="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=70&auto=format">
 <meta property="og:type" content="website">
@@ -380,6 +380,7 @@
           <button class="icon-tab" data-cat="Motel" onclick="filterCategory('Motel')">🛏️ Motels</button>
           <button class="icon-tab" data-cat="Airbnb" onclick="filterCategory('Airbnb')">🔑 Airbnbs</button>
           <button class="icon-tab" data-cat="Restaurant" onclick="filterCategory('Restaurant')">🍽️ Restaurants</button>
+          <button class="icon-tab" data-cat="Other" onclick="filterCategory('Other')">📍 Others</button>
         </div>
         <div class="search-row">
           <div class="field">
@@ -601,7 +602,7 @@
       <p style="color:var(--text-soft);font-size:14px;margin-bottom:18px;">Enter your admin password to manage listings.</p>
       <input type="password" id="adminPasswordInput" placeholder="Password" style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:16px;margin-bottom:12px;">
       <button class="btn-primary" style="width:100%;padding:11px;" onclick="checkAdminPassword()">Enter</button>
-      <p style="font-size:12px;color:var(--text-soft);margin-top:14px;">Enter password</p>
+      <p style="font-size:12px;color:var(--text-soft);margin-top:14px;">Note: this is a basic screen lock for a demo, not real security — don't rely on it to protect sensitive data.</p>
     </div>
 
     <div id="adminPanel" style="display:none;">
@@ -747,6 +748,7 @@
               <option>Motel</option>
               <option>Airbnb</option>
               <option>Restaurant</option>
+              <option>Other</option>
             </select>
           </div>
           <div class="form-field full">
@@ -809,15 +811,34 @@
               <input type="checkbox" id="admGuestFavorite" style="width:auto;"> Mark as guest favorite
             </label>
           </div>
+          <div class="form-field full" id="admLocationOnlyField">
+            <label style="display:flex;align-items:center;gap:8px;font-weight:500;">
+              <input type="checkbox" id="admLocationOnly" style="width:auto;" onchange="toggleLocationOnlyFields()"> Location only (no booking — e.g. bars)
+            </label>
+            <p style="font-size:12.5px;color:var(--text-soft);margin:6px 0 0;">The listing page will only show photos, services and directions — no "Request to Book", no room types, no contact buttons.</p>
+          </div>
           <div class="form-field full">
+            <label>Services offered (comma-separated — shown on the listing page)</label>
+            <input type="text" id="admServices" placeholder="Live music, Pool table, Outdoor seating">
+          </div>
+          <div class="form-field full" id="admHasOwnSystemField">
             <label style="display:flex;align-items:center;gap:8px;font-weight:500;">
               <input type="checkbox" id="admHasOwnSystem" style="width:auto;" onchange="toggleAdminBookingFields()"> This host has their own booking/payment system
             </label>
             <p style="font-size:12.5px;color:var(--text-soft);margin:6px 0 0;">Price, description and photos become optional — their own site already has that. Just add the name, location and their booking link below.</p>
           </div>
+          <div class="form-field full" id="admOwnerPhoneField">
+            <label>Host phone/WhatsApp (shown as Call + WhatsApp buttons on the listing page)</label>
+            <input type="text" id="admOwnerPhone" placeholder="256700000000">
+          </div>
           <div class="form-field full" id="admOwnerEmailField">
-            <label>Owner email (requests are addressed to this host — routing itself still goes through your Web3Forms inbox)</label>
+            <label>Owner email (shown in your Booking requests as a reminder of who to tell)</label>
             <input type="email" id="admOwnerEmail" placeholder="host@example.com">
+          </div>
+          <div class="form-field full" id="admWeb3FormsKeyField">
+            <label>Host's own Web3Forms access key (optional)</label>
+            <input type="text" id="admWeb3FormsKey" placeholder="leave blank to send requests to your own inbox">
+            <p style="font-size:12.5px;color:var(--text-soft);margin:6px 0 0;">This is the only real way to send a specific host their own booking request emails: the host creates a free account at web3forms.com, copies their personal access key, and gives it to you to paste here. Leave this blank and the request still comes to your inbox like before.</p>
           </div>
           <div class="form-field full" id="admExternalUrlField" style="display:none;">
             <label>Their booking/payment page URL</label>
@@ -835,6 +856,7 @@
         <h2>Your listings (this device)</h2>
         <span></span>
       </div>
+      <input type="text" id="adminListingSearch" placeholder="Search listings by name..." oninput="renderAdminTable()" style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:16px;margin-bottom:14px;box-sizing:border-box;">
       <div id="adminListingsTable"></div>
     </div>
   </div>
@@ -863,6 +885,7 @@
               <option>Motel</option>
               <option>Airbnb</option>
               <option>Restaurant</option>
+              <option>Other</option>
             </select>
           </div>
           <div class="form-field">
@@ -919,10 +942,6 @@
         <h4>Hosts</h4>
         <a href="#" onclick="showView('view-host-form');return false;">List your place</a>
         <a href="#" onclick="showView('view-terms');return false;">Terms</a>
-      </div>
-      <div>
-        <h4>Manage</h4>
-        <a href="#" onclick="openAdmin();return false;">Admin panel</a>
       </div>
       <div>
         <h4>Follow</h4>
@@ -1259,7 +1278,16 @@ function renderListings(){
     grid.innerHTML = '<div class="no-results">Nothing matches that yet — try widening the price range or clearing the location.</div>';
   } else {
     const visible = items.slice(0, state.visibleCount || PAGE_SIZE);
-    grid.innerHTML = visible.map(cardHTML).join("");
+    let gridHTML = "";
+    let partnerGroup = 0;
+    visible.forEach((l, i) => {
+      gridHTML += cardHTML(l);
+      if(partners.length > 3 && (i + 1) % PAGE_SIZE === 0){
+        gridHTML += partnerStripHTML(partnerGroup);
+        partnerGroup++;
+      }
+    });
+    grid.innerHTML = gridHTML;
     if(items.length > visible.length){
       grid.insertAdjacentHTML("afterend", `
         <div id="loadMoreWrap" style="text-align:center;margin-top:24px;">
@@ -1315,6 +1343,44 @@ function normalizePartnerLink(u){
   if(/^https?:\/\//i.test(u)) return u;
   if(/^[+\d][\d\s\-()]{6,}$/.test(u)) return "https://wa.me/" + u.replace(/\D/g, ""); // a bare phone number opens WhatsApp
   return "https://" + u;
+}
+
+function partnerCardHTML(p){
+  const link = normalizePartnerLink(p.link);
+  return `
+    <div class="card" ${link ? `onclick="window.open('${link.replace(/'/g,"\\'")}','_blank')"` : ''}>
+      <div class="card-img">
+        <img src="${p.image}" alt="${p.name}" loading="lazy" decoding="async">
+        <span class="badge sponsored">Partner</span>
+      </div>
+      <div class="card-body">
+        <div class="card-name">${p.name}</div>
+        <div class="card-loc">${p.location}${p.note ? " — " + p.note : ""}</div>
+      </div>
+    </div>`;
+}
+
+// Shows a few partners at a time; called repeatedly while scrolling through
+// results so that with many advertisers (e.g. 4-8+), different ones get
+// shown each time instead of all crowding into the single top banner.
+function partnerStripHTML(groupIndex){
+  if(!partners || partners.length === 0) return "";
+  const perGroup = 3;
+  const start = (groupIndex * perGroup) % partners.length;
+  const group = [];
+  for(let i = 0; i < Math.min(perGroup, partners.length); i++){
+    group.push(partners[(start + i) % partners.length]);
+  }
+  return `
+    <div class="partners" style="grid-column:1/-1;margin:10px 0 20px;">
+      <div class="section-title">
+        <h2>Recommended for your trip</h2>
+        <span>Partner listings</span>
+      </div>
+      <div class="grid">
+        ${group.map(partnerCardHTML).join("")}
+      </div>
+    </div>`;
 }
 
 function renderPartners(){
@@ -1418,13 +1484,7 @@ function openListing(id){
   const el = document.getElementById("listingDetailContent");
 
   el.innerHTML = `
-    <div class="gallery">
-      <img src="${l.images[0]}" alt="${l.name}" loading="lazy" decoding="async">
-      <div class="gallery-side">
-        <img src="${l.images[1] || l.images[0]}" alt="" loading="lazy" decoding="async">
-        <img src="${l.images[2] || l.images[0]}" alt="" loading="lazy" decoding="async">
-      </div>
-    </div>
+    ${galleryHTML(l.images, l.name)}
     <div class="detail-grid">
       <div>
         <div class="detail-head">
@@ -1440,7 +1500,7 @@ function openListing(id){
           <p>${l.description}</p>
         </div>
 
-        ${ (l.rooms && l.rooms.length > 0) ? `
+        ${ (!l.locationOnly && l.rooms && l.rooms.length > 0) ? `
         <div class="detail-section">
           <h3>Room types</h3>
           <div id="roomTypeList">${roomTypeListHTML(l)}</div>
@@ -1452,6 +1512,14 @@ function openListing(id){
             ${l.amenities.map(a => `<div class="amenity">${a}</div>`).join("")}
           </div>
         </div>
+
+        ${ (l.services && l.services.length > 0) ? `
+        <div class="detail-section">
+          <h3>Services</h3>
+          <div class="amenity-grid">
+            ${l.services.map(s => `<div class="amenity">${s}</div>`).join("")}
+          </div>
+        </div>` : ``}
 
         <div class="detail-section">
           <h3>Location</h3>
@@ -1475,9 +1543,17 @@ function openListing(id){
       </div>
 
       <div>
+        ${ l.locationOnly ? `
+        <div class="booking-box">
+          <div style="font-weight:600;font-size:16px;margin-bottom:8px;">📍 Location only</div>
+          <p style="font-size:13.5px;color:var(--text-soft);">This place doesn't take bookings through Fine Booking — use directions to find it.</p>
+          <a class="btn-primary" style="display:block;text-align:center;width:100%;padding:12px;box-sizing:border-box;margin-top:10px;" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}">Get directions</a>
+        </div>` : `
         <div class="booking-box" id="bookingBox">
           ${bookingBoxHTML(l)}
         </div>
+        ${contactButtonsHTML(l)}
+        ` }
       </div>
     </div>
   `;
@@ -1485,6 +1561,41 @@ function openListing(id){
   history.replaceState(null, "", location.pathname + location.search + "#listing-" + l.id);
   document.title = l.name + " — Fine Booking";
   loadReviewsForListing(l.id);
+}
+
+function galleryHTML(images, name){
+  const imgs = (images && images.length) ? images : [];
+  if(imgs.length <= 1){
+    return `<div class="gallery" style="grid-template-columns:1fr;">
+      <img src="${imgs[0] || ''}" alt="${name || ''}" loading="lazy" decoding="async">
+    </div>`;
+  }
+  if(imgs.length === 2){
+    return `<div class="gallery">
+      <img src="${imgs[0]}" alt="${name || ''}" loading="lazy" decoding="async">
+      <div class="gallery-side" style="grid-template-rows:1fr;">
+        <img src="${imgs[1]}" alt="" loading="lazy" decoding="async">
+      </div>
+    </div>`;
+  }
+  return `<div class="gallery">
+    <img src="${imgs[0]}" alt="${name || ''}" loading="lazy" decoding="async">
+    <div class="gallery-side">
+      <img src="${imgs[1]}" alt="" loading="lazy" decoding="async">
+      <img src="${imgs[2]}" alt="" loading="lazy" decoding="async">
+    </div>
+  </div>`;
+}
+
+function contactButtonsHTML(l){
+  if(!l.ownerPhone) return "";
+  const phone = l.ownerPhone.replace(/[^0-9]/g, "");
+  const waMsg = encodeURIComponent("Hi, I'm interested in " + l.name + " (" + l.location + ") on Fine Booking.");
+  return `
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <a class="btn-ghost" style="flex:1;text-align:center;padding:11px;box-sizing:border-box;" href="tel:+${phone}">📞 Call</a>
+      <a class="btn-ghost" style="flex:1;text-align:center;padding:11px;box-sizing:border-box;" target="_blank" href="https://wa.me/${phone}?text=${waMsg}">WhatsApp</a>
+    </div>`;
 }
 
 function shareListing(id, name){
@@ -1884,7 +1995,7 @@ async function submitBooking(e){
   currentReference = await generateUniqueReference();
 
   const payload = {
-    access_key: WEB3FORMS_ACCESS_KEY,
+    access_key: (l.web3formsKey && l.web3formsKey.trim()) ? l.web3formsKey.trim() : WEB3FORMS_ACCESS_KEY,
     subject: "New booking request — " + l.name,
     reference: currentReference,
     listing: l.name,
@@ -2459,7 +2570,8 @@ function selectGeoResult(lat, lng, displayName){
 function updateRequiredAdminFields(){
   const quick = document.getElementById("admQuickAdd").checked;
   const hasOwn = document.getElementById("admHasOwnSystem").checked;
-  const relaxed = quick || hasOwn;
+  const locationOnly = document.getElementById("admLocationOnly").checked;
+  const relaxed = quick || hasOwn || locationOnly;
   ["admPrice","admDescription"].forEach(id => {
     document.getElementById(id).required = !relaxed;
   });
@@ -2474,7 +2586,20 @@ function toggleQuickAdd(){
 function toggleAdminBookingFields(){
   const hasOwn = document.getElementById("admHasOwnSystem").checked;
   document.getElementById("admOwnerEmailField").style.display = hasOwn ? "none" : "block";
+  document.getElementById("admWeb3FormsKeyField").style.display = hasOwn ? "none" : "block";
   document.getElementById("admExternalUrlField").style.display = hasOwn ? "block" : "none";
+  updateRequiredAdminFields();
+}
+
+function toggleLocationOnlyFields(){
+  const locationOnly = document.getElementById("admLocationOnly").checked;
+  // Booking, rooms, and contact-button fields don't apply to location-only places
+  document.getElementById("admHasOwnSystemField").style.display = locationOnly ? "none" : "block";
+  document.getElementById("admOwnerPhoneField").style.display = locationOnly ? "none" : "block";
+  document.getElementById("admOwnerEmailField").style.display = locationOnly ? "none" : "block";
+  document.getElementById("admWeb3FormsKeyField").style.display = locationOnly ? "none" : "block";
+  document.getElementById("admExternalUrlField").style.display = "none";
+  if(locationOnly) document.getElementById("admHasOwnSystem").checked = false;
   updateRequiredAdminFields();
 }
 
@@ -2484,6 +2609,7 @@ function resetAdminForm(){
   document.getElementById("adminFormTitle").textContent = "Add a new listing";
   document.getElementById("admImageFilesProgress").innerHTML = "";
   toggleAdminBookingFields();
+  toggleLocationOnlyFields();
   toggleQuickAdd();
 }
 
@@ -2540,12 +2666,16 @@ async function saveListingFromAdmin(e){
     description: document.getElementById("admDescription").value || (hasOwn ? "Full details, photos and pricing are on their own booking site — tap below to view and book." : "Details coming soon — contact us to enquire."),
     images: allImages.length ? allImages : [PLACEHOLDER_IMG],
     amenities: document.getElementById("admAmenities").value.split(",").map(s => s.trim()).filter(Boolean),
+    services: document.getElementById("admServices").value.split(",").map(s => s.trim()).filter(Boolean),
+    locationOnly: document.getElementById("admLocationOnly").checked,
     rooms: document.getElementById("admRooms").value.split("\n").map(s => s.trim()).filter(Boolean).map((line, i) => {
       const parts = line.split("|").map(p => p.trim());
       return { id: "r" + (i+1), name: parts[0] || "Room", price: Number(parts[1]) || 0, capacity: Number(parts[2]) || 2, image: parts[3] || "" };
     }),
     hasOwnSystem: hasOwn,
+    ownerPhone: hasOwn ? "" : document.getElementById("admOwnerPhone").value.replace(/[^0-9]/g, ""),
     ownerEmail: hasOwn ? "" : document.getElementById("admOwnerEmail").value,
+    web3formsKey: hasOwn ? "" : document.getElementById("admWeb3FormsKey").value.trim(),
     externalBookingUrl: hasOwn ? document.getElementById("admExternalUrl").value : ""
   };
 
@@ -2576,15 +2706,20 @@ function editListing(id){
   document.getElementById("admDescription").value = l.description;
   document.getElementById("admImages").value = l.images.join("\n");
   document.getElementById("admAmenities").value = l.amenities.join(", ");
+  document.getElementById("admServices").value = (l.services || []).join(", ");
+  document.getElementById("admLocationOnly").checked = !!l.locationOnly;
   document.getElementById("admRooms").value = (l.rooms || []).map(r => [r.name, r.price, r.capacity, r.image || ""].join(" | ")).join("\n");
   document.getElementById("admVerified").checked = l.verified;
   document.getElementById("admGuestFavorite").checked = l.guestFavorite;
   document.getElementById("admHasOwnSystem").checked = l.hasOwnSystem;
+  document.getElementById("admOwnerPhone").value = l.ownerPhone || "";
   document.getElementById("admOwnerEmail").value = l.ownerEmail || "";
+  document.getElementById("admWeb3FormsKey").value = l.web3formsKey || "";
   document.getElementById("admExternalUrl").value = l.externalBookingUrl || "";
   document.getElementById("admQuickAdd").checked = !!l.basic;
   toggleQuickAdd();
   toggleAdminBookingFields();
+  toggleLocationOnlyFields();
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
@@ -2602,11 +2737,18 @@ async function deleteListing(id){
 
 function renderAdminTable(){
   const el = document.getElementById("adminListingsTable");
+  const searchEl = document.getElementById("adminListingSearch");
+  const q = (searchEl ? searchEl.value : "").trim().toLowerCase();
+  const filtered = q ? listings.filter(l => l.name.toLowerCase().includes(q)) : listings;
   if(listings.length === 0){
     el.innerHTML = '<p style="color:var(--text-soft);font-size:14px;">No listings to show.</p>';
     return;
   }
-  el.innerHTML = listings.map(l => `
+  if(filtered.length === 0){
+    el.innerHTML = '<p style="color:var(--text-soft);font-size:14px;">No listings match "' + q + '".</p>';
+    return;
+  }
+  el.innerHTML = filtered.map(l => `
     <div style="display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
       <img src="${l.images[0] || ''}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:var(--bg-soft);" loading="lazy" decoding="async">
       <div style="flex:1;">
@@ -2660,6 +2802,16 @@ async function submitHostForm(e){
 // images start loading immediately instead of the page sitting empty while
 // waiting on a Firestore round-trip. refreshAllListings() below then quietly
 // swaps in the real/overridden data once it arrives, re-rendering only then.
+// Secret admin entry point — there is no visible "Admin" link anywhere on
+// the site. Bookmark this exact URL (including the hash below) to get in:
+//   https://finebooking.netlify.app/#fb-mgmt-x7k2p9
+// Change the token below any time you want a different secret link.
+const SECRET_ADMIN_TOKEN = "fb-mgmt-x7k2p9";
+if(location.hash === "#" + SECRET_ADMIN_TOKEN){
+  history.replaceState(null, "", location.pathname + location.search);
+  openAdmin();
+}
+
 renderListings();
 refreshAllListings().then(() => {
   const match = location.hash.match(/^#listing-(.+)$/);
@@ -2671,6 +2823,7 @@ refreshAllListings().then(() => {
 renderPartners();
 refreshPartners();
 toggleAdminBookingFields();
+toggleLocationOnlyFields();
 
 document.addEventListener("click", (e) => {
   if(!e.target.closest(".field")){
