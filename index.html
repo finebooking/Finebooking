@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fine Booking UG — Hotels, Airbnbs and Accomodation across Uganda</title>
+<title>Fine Booking — Stays across Uganda</title>
 <meta name="description" content="Find hotels, guesthouses, motels, Airbnbs and restaurants across Uganda. No accounts, no booking fees — message or book directly with the host.">
-<meta property="og:title" content="Fine Booking UG — Stays across Uganda">
+<meta property="og:title" content="Fine Booking — Stays across Uganda">
 <meta property="og:description" content="Find hotels, guesthouses, motels, Airbnbs and restaurants across Uganda. No accounts, no booking fees.">
 <meta property="og:image" content="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=70&auto=format">
 <meta property="og:type" content="website">
@@ -167,7 +167,7 @@
   .card-img{
     aspect-ratio:4/3;border-radius:var(--radius);overflow:hidden;position:relative;background:var(--bg-soft);
   }
-  .card-img img{width:100%;height:100%;object-fit:cover;transition:transform .35s ease;}
+  .card-img img{width:100%;height:100%;object-fit:cover;object-position:center;transition:transform .35s ease;}
   .card:hover .card-img img{transform:scale(1.045);}
   .badge{
     position:absolute;top:10px;left:10px;background:#fff;
@@ -253,12 +253,22 @@
 
   /* Listing detail */
   .gallery{display:grid;grid-template-columns:1.4fr 1fr;gap:8px;border-radius:var(--radius-lg);overflow:hidden;margin-bottom:26px;height:340px;cursor:pointer;}
-  .gallery img{width:100%;height:100%;object-fit:cover;display:block;}
+  .gallery img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;}
   .gallery-side{display:grid;grid-template-rows:1fr 1fr;gap:8px;}
   .gallery-side.quad{grid-template-rows:1fr 1fr;grid-template-columns:1fr 1fr;}
   .gallery-thumb{position:relative;overflow:hidden;}
   .gallery-more-badge{position:absolute;inset:0;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;}
   @media (max-width:720px){ .gallery{height:240px;} }
+  /* Swipeable photo slider — replaces the hero+thumbnail gallery above on listing detail pages */
+  .slider-wrap{position:relative;border-radius:var(--radius-lg);overflow:hidden;margin-bottom:26px;height:340px;background:#f2f2f2;}
+  .photo-slider{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;height:100%;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+  .photo-slider::-webkit-scrollbar{display:none;}
+  .photo-slide{flex:0 0 100%;scroll-snap-align:start;height:100%;cursor:pointer;}
+  .photo-slide img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;}
+  .slider-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.88);border:none;color:#222;font-size:20px;width:38px;height:38px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 5px rgba(0,0,0,.22);}
+  .slider-prev{left:12px;} .slider-next{right:12px;}
+  .slider-counter{position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.55);color:#fff;font-size:12.5px;padding:4px 10px;border-radius:20px;}
+  @media (max-width:720px){ .slider-wrap{height:240px;} .slider-nav{display:none;} }
   .lightbox{position:fixed;inset:0;background:rgba(10,10,10,.94);z-index:300;display:flex;align-items:center;justify-content:center;flex-direction:column;}
   .lightbox img{max-width:92vw;max-height:78vh;object-fit:contain;border-radius:8px;}
   .lightbox-close{position:absolute;top:18px;right:20px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1;}
@@ -278,7 +288,7 @@
   .room-card{border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .15s;}
   .room-card.selected{border-color:var(--accent);border-width:2px;}
   .room-card-img{height:130px;background:#f2f2f2;}
-  .room-card-img img{width:100%;height:100%;object-fit:cover;display:block;}
+  .room-card-img img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;}
   .room-card-body{padding:10px 12px 12px;}
   .room-card-name{font-weight:600;font-size:14.5px;}
   .room-card-cap{font-size:12.5px;color:var(--text-soft);margin-top:2px;}
@@ -493,8 +503,9 @@
   <div class="wrap">
     <a href="#" class="back-link" id="bookingBackLink" onclick="return false;">← Back to listing</a>
     <div class="form-wrap">
-      <h1 style="font-size:22px;margin-bottom:4px;">Request to book</h1>
+      <h1 style="font-size:22px;margin-bottom:4px;" id="bookingFormTitle">Request to book</h1>
       <p style="color:var(--text-soft);font-size:14px;margin:0 0 22px;" id="bookingSubtitle"></p>
+      <p style="font-size:13.5px;color:var(--text-soft);background:var(--bg-soft);border-radius:10px;padding:10px 12px;margin:0 0 18px;display:none;" id="reservationNoteBanner"></p>
 
       <form id="bookingForm" onsubmit="submitBooking(event)">
         <input type="hidden" id="listingIdField" name="listing">
@@ -514,22 +525,26 @@
             <input type="email" id="guestEmail">
           </div>
           <div class="form-field">
-            <label>Check-in</label>
+            <label id="checkInLabel">Check-in</label>
             <input type="date" id="checkIn" required onchange="updateEstimate()">
           </div>
-          <div class="form-field">
+          <div class="form-field" id="checkOutField">
             <label>Check-out</label>
-            <input type="date" id="checkOut" required onchange="updateEstimate()">
+            <input type="date" id="checkOut" onchange="updateEstimate()">
+          </div>
+          <div class="form-field" id="reservationTimeField" style="display:none;">
+            <label>Time</label>
+            <input type="time" id="reservationTime" onchange="updateEstimate()">
           </div>
           <div class="form-field">
-            <label>Guests</label>
+            <label id="guestCountLabel">Guests</label>
             <input type="number" id="guestCount" min="1" value="2" onchange="updateEstimate()">
           </div>
-          <div class="form-field">
+          <div class="form-field" id="roomCountField">
             <label>Rooms needed</label>
             <input type="number" id="roomCount" min="1" value="1" onchange="updateEstimate()">
           </div>
-          <div class="form-field full">
+          <div class="form-field full" id="purposeField">
             <label>Purpose of stay</label>
             <select id="purpose">
               <option>Leisure</option>
@@ -546,7 +561,7 @@
 
         <div class="summary-box" id="summaryBox"></div>
 
-        <button type="submit" class="btn-primary" style="width:100%;padding:13px;font-size:15px;">Send request</button>
+        <button type="submit" class="btn-primary" style="width:100%;padding:13px;font-size:15px;" id="bookingSubmitBtn">Send request</button>
         <p class="response-note">This sends a request only — nothing is charged, and nothing is confirmed until the host verifies availability.</p>
       </form>
     </div>
@@ -837,6 +852,18 @@
               <input type="checkbox" id="admLocationOnly" style="width:auto;" onchange="toggleLocationOnlyFields()"> Location only (no booking — e.g. bars)
             </label>
             <p style="font-size:12.5px;color:var(--text-soft);margin:6px 0 0;">The listing page will only show photos, services and directions — no "Request to Book", no room types, no contact buttons.</p>
+          </div>
+          <div class="form-field full" id="admBookingTypeField">
+            <label>Booking type</label>
+            <select id="admBookingType">
+              <option value="stay">Book a stay (check-in / check-out — Airbnbs, hotel rooms)</option>
+              <option value="table">Reserve a table (date, time, party size — restaurants, dine-only hotels)</option>
+            </select>
+          </div>
+          <div class="form-field full" id="admReservationNoteField">
+            <label>Reservation terms (shown to guests above the button, and in your request email)</label>
+            <input type="text" id="admReservationNote" placeholder="e.g. Free reservation, or Deposit required — host will share payment details on WhatsApp">
+            <p style="font-size:12.5px;color:var(--text-soft);margin:6px 0 0;">The guest pays the host directly — this is just a note so they know what to expect before sending a request.</p>
           </div>
           <div class="form-field full">
             <label>Services offered (comma-separated — shown on the listing page)</label>
@@ -1584,36 +1611,38 @@ function openListing(id){
 let currentGalleryImages = [];
 let lightboxIndex = 0;
 
-// Medium-height hero photo + up to 4 thumbnails (Airbnb-style preview).
-// Every photo is independently clickable and opens the full lightbox —
-// no cap on how many photos a listing can have, only how many show in
-// the preview grid before a "+N photos" badge takes over the last tile.
+// Swipeable photo slider (Airbnb-style): guests swipe straight on the
+// screen to browse every photo, no tap needed first. Tapping a slide
+// still opens the full lightbox for a closer look. No cap on photo count.
 function galleryHTML(images, name){
-  const imgs = (images && images.length) ? images : [];
+  const imgs = (images && images.length) ? images : [""];
   currentGalleryImages = imgs;
-  if(imgs.length === 0){
-    return `<div class="gallery" style="grid-template-columns:1fr;"><img src="" alt="${name || ''}"></div>`;
-  }
-  if(imgs.length === 1){
-    return `<div class="gallery" style="grid-template-columns:1fr;" onclick="openLightbox(0)">
-      <img src="${imgs[0]}" alt="${name || ''}" loading="lazy" decoding="async">
-    </div>`;
-  }
-  const thumbs = imgs.slice(1, 5);
-  const extra = imgs.length - 1 - thumbs.length;
-  const thumbsHTML = thumbs.map((src, i) => {
-    const idx = i + 1;
-    const isLast = i === thumbs.length - 1;
-    return `<div class="gallery-thumb" onclick="event.stopPropagation();openLightbox(${idx})">
-      <img src="${src}" alt="" loading="lazy" decoding="async">
-      ${ (isLast && extra > 0) ? `<div class="gallery-more-badge">+${extra} photo${extra===1?'':'s'}</div>` : '' }
-    </div>`;
-  }).join("");
-  const sideClass = thumbs.length > 2 ? "gallery-side quad" : "gallery-side";
-  return `<div class="gallery">
-    <img src="${imgs[0]}" alt="${name || ''}" loading="lazy" decoding="async" onclick="openLightbox(0)">
-    <div class="${sideClass}">${thumbsHTML}</div>
+  const slidesHTML = imgs.map((src, i) => `
+    <div class="photo-slide" onclick="openLightbox(${i})">
+      <img src="${src}" alt="${name || ''}" loading="${i === 0 ? 'eager' : 'lazy'}" decoding="async">
+    </div>`).join("");
+  const navHTML = imgs.length > 1 ? `
+    <button type="button" class="slider-nav slider-prev" onclick="sliderStep(-1)" aria-label="Previous photo">‹</button>
+    <button type="button" class="slider-nav slider-next" onclick="sliderStep(1)" aria-label="Next photo">›</button>
+    <div class="slider-counter" id="sliderCounter">1 / ${imgs.length}</div>` : '';
+  return `<div class="slider-wrap">
+    <div class="photo-slider" id="photoSlider" onscroll="updateSliderCounter()">${slidesHTML}</div>
+    ${navHTML}
   </div>`;
+}
+
+function sliderStep(dir){
+  const el = document.getElementById("photoSlider");
+  if(!el) return;
+  el.scrollBy({ left: dir * el.clientWidth, behavior: "smooth" });
+}
+
+function updateSliderCounter(){
+  const el = document.getElementById("photoSlider");
+  const counter = document.getElementById("sliderCounter");
+  if(!el || !counter || !currentGalleryImages.length) return;
+  const idx = Math.round(el.scrollLeft / Math.max(el.clientWidth, 1));
+  counter.textContent = (idx + 1) + " / " + currentGalleryImages.length;
 }
 
 function openLightbox(index){
@@ -1735,9 +1764,12 @@ function bookingBoxHTML(l){
       <button class="btn-primary" style="width:100%;padding:12px;" onclick="window.open('${l.externalBookingUrl}','_blank')">Book on their site</button>
       <p class="response-note">This host uses their own booking and payment system — you'll complete everything there.</p>`;
   }
+  const isTable = l.bookingType === "table";
+  const noteHTML = l.reservationNote ? `<p style="font-size:13px;color:var(--text-soft);margin:0 0 10px;">${l.reservationNote}</p>` : "";
   return `
     <div class="price-line">${priceLine}</div>
-    <button class="btn-primary" style="width:100%;padding:12px;" onclick="startBooking(${l.id})">Request to book</button>
+    ${noteHTML}
+    <button class="btn-primary" style="width:100%;padding:12px;" onclick="startBooking(${l.id})">${isTable ? "Reserve a table" : "Request to book"}</button>
     <p class="response-note">Free to request. Nothing is charged, and it's not confirmed until we check with the host.</p>`;
 }
 
@@ -1748,10 +1780,30 @@ function startBooking(id){
   const l = listings.find(x => x.id === id);
   currentListingId = id;
   currentBookingRoom = (l.rooms && l.rooms.length > 0) ? l.rooms.find(r => r.id === selectedRoomId) : null;
+  const isTable = l.bookingType === "table";
   document.getElementById("listingIdField").value = l.name + (currentBookingRoom ? " — " + currentBookingRoom.name : "");
   document.getElementById("bookingSubtitle").textContent = l.name + (currentBookingRoom ? " — " + currentBookingRoom.name : "") + " · " + l.location;
   document.getElementById("bookingBackLink").onclick = () => { openListing(id); return false; };
   document.getElementById("bookingForm").reset();
+
+  document.getElementById("bookingFormTitle").textContent = isTable ? "Reserve a table" : "Request to book";
+  document.getElementById("bookingSubmitBtn").textContent = isTable ? "Send reservation" : "Send request";
+  document.getElementById("checkInLabel").textContent = isTable ? "Date" : "Check-in";
+  document.getElementById("guestCountLabel").textContent = isTable ? "Party size" : "Guests";
+  document.getElementById("checkOutField").style.display = isTable ? "none" : "block";
+  document.getElementById("checkOut").required = !isTable;
+  document.getElementById("roomCountField").style.display = isTable ? "none" : "block";
+  document.getElementById("reservationTimeField").style.display = isTable ? "block" : "none";
+  document.getElementById("purposeField").style.display = isTable ? "none" : "block";
+
+  const noteBanner = document.getElementById("reservationNoteBanner");
+  if(l.reservationNote){
+    noteBanner.textContent = l.reservationNote;
+    noteBanner.style.display = "block";
+  } else {
+    noteBanner.style.display = "none";
+  }
+
   updateEstimate();
   showView("view-booking");
 }
@@ -1765,6 +1817,25 @@ function nightsBetween(inDate, outDate){
 function updateEstimate(){
   const l = listings.find(x => x.id === currentListingId);
   if(!l) return;
+  const box = document.getElementById("summaryBox");
+
+  if(l.bookingType === "table"){
+    const date = document.getElementById("checkIn").value;
+    const time = document.getElementById("reservationTime").value;
+    const party = document.getElementById("guestCount").value || 1;
+    if(!date){
+      box.innerHTML = `<div>Select a date to continue</div>`;
+      return;
+    }
+    box.innerHTML = `
+      <div><span>${l.name}</span><b>${l.location}</b></div>
+      <div><span>Date</span><b>${date}</b></div>
+      ${time ? `<div><span>Time</span><b>${time}</b></div>` : ``}
+      <div><span>Party size</span><b>${party}</b></div>
+    `;
+    return;
+  }
+
   const unitPrice = currentBookingRoom ? currentBookingRoom.price : l.price;
   const checkIn = document.getElementById("checkIn").value;
   const checkOut = document.getElementById("checkOut").value;
@@ -1772,7 +1843,6 @@ function updateEstimate(){
   const nights = nightsBetween(checkIn, checkOut);
   const total = nights * roomCount * unitPrice;
 
-  const box = document.getElementById("summaryBox");
   if(nights <= 0){
     box.innerHTML = `<div>Select your dates to see an estimate</div>`;
     return;
@@ -1784,6 +1854,13 @@ function updateEstimate(){
     <div><span>Rooms</span><b>${roomCount}</b></div>
     <div><span>Estimated total</span><b>${formatUGX(total)}</b></div>
   `;
+}
+
+function bookingDatesLabel(b){
+  if(b.bookingType === "table"){
+    return b.checkIn + (b.reservationTime ? " at " + b.reservationTime : "");
+  }
+  return b.checkIn + " → " + b.checkOut;
 }
 
 function generateReference(){
@@ -2059,7 +2136,7 @@ async function trackBooking(){
       <div><span>Reference</span><b>${booking.reference}</b></div>
       <div><span>Place</span><b>${booking.listingName}</b></div>
       <div><span>Location</span><b>${booking.location}</b></div>
-      <div><span>Dates</span><b>${booking.checkIn} → ${booking.checkOut}</b></div>
+      <div><span>${booking.bookingType === "table" ? "Date" : "Dates"}</span><b>${bookingDatesLabel(booking)}</b></div>
       <div><span>Status</span><b>${statusBadgeHTML(booking.status)}</b></div>
     </div>
     <p class="response-note">Status updates as soon as we've confirmed with the host — check back, or wait for our WhatsApp/email message.</p>
@@ -2078,24 +2155,33 @@ async function generateUniqueReference(){
 async function submitBooking(e){
   e.preventDefault();
   const l = listings.find(x => x.id === currentListingId);
+  const isTable = l.bookingType === "table";
   currentReference = await generateUniqueReference();
 
   const payload = {
     access_key: (l.web3formsKey && l.web3formsKey.trim()) ? l.web3formsKey.trim() : WEB3FORMS_ACCESS_KEY,
-    subject: "New booking request — " + l.name,
+    subject: (isTable ? "New table reservation — " : "New booking request — ") + l.name,
     reference: currentReference,
     listing: l.name,
     location: l.location,
+    booking_type: isTable ? "Table reservation" : "Stay booking",
+    reservation_terms: l.reservationNote || "",
     guest_name: document.getElementById("guestName").value,
     guest_phone: document.getElementById("guestPhone").value,
     guest_email: document.getElementById("guestEmail").value,
-    check_in: document.getElementById("checkIn").value,
-    check_out: document.getElementById("checkOut").value,
-    guests: document.getElementById("guestCount").value,
-    rooms: document.getElementById("roomCount").value,
-    purpose: document.getElementById("purpose").value,
     special_requests: document.getElementById("specialRequests").value
   };
+  if(isTable){
+    payload.reservation_date = document.getElementById("checkIn").value;
+    payload.reservation_time = document.getElementById("reservationTime").value;
+    payload.party_size = document.getElementById("guestCount").value;
+  } else {
+    payload.check_in = document.getElementById("checkIn").value;
+    payload.check_out = document.getElementById("checkOut").value;
+    payload.guests = document.getElementById("guestCount").value;
+    payload.rooms = document.getElementById("roomCount").value;
+    payload.purpose = document.getElementById("purpose").value;
+  }
 
   try{
     // Replace WEB3FORMS_ACCESS_KEY above with your real key from web3forms.com
@@ -2115,13 +2201,15 @@ async function submitBooking(e){
     reference: currentReference,
     listingName: l.name,
     location: l.location,
+    bookingType: isTable ? "table" : "stay",
     guestName: payload.guest_name,
     guestPhone: payload.guest_phone,
     guestEmail: payload.guest_email,
-    checkIn: payload.check_in,
-    checkOut: payload.check_out,
-    guests: payload.guests,
-    rooms: payload.rooms,
+    checkIn: isTable ? payload.reservation_date : payload.check_in,
+    checkOut: isTable ? "" : payload.check_out,
+    reservationTime: isTable ? payload.reservation_time : "",
+    guests: isTable ? payload.party_size : payload.guests,
+    rooms: isTable ? "" : payload.rooms,
     status: "pending",
     createdAt: Date.now()
   });
@@ -2313,7 +2401,7 @@ async function renderBookingsTable(){
         <div>
           <div style="font-weight:600;font-size:14.5px;">${b.listingName} <span style="font-weight:400;color:var(--text-soft);font-size:12.5px;">· ${b.reference}</span></div>
           <div style="font-size:13px;color:var(--text-soft);margin-top:2px;">${b.guestName} · ${b.guestPhone}${b.guestEmail ? " · " + b.guestEmail : ""}</div>
-          <div style="font-size:13px;color:var(--text-soft);margin-top:2px;">${b.checkIn} → ${b.checkOut} · ${b.guests} guests · ${b.rooms} room(s)</div>
+          <div style="font-size:13px;color:var(--text-soft);margin-top:2px;">${b.bookingType === "table" ? (bookingDatesLabel(b) + " · " + b.guests + " guests") : (b.checkIn + " → " + b.checkOut + " · " + b.guests + " guests · " + b.rooms + " room(s)")}</div>
         </div>
         <select onchange="updateBookingStatus('${b.reference}', this.value).then(renderBookingsTable)" style="border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:13px;height:fit-content;">
           <option value="pending" ${(!b.status || b.status === "pending") ? "selected" : ""}>Pending</option>
@@ -2674,6 +2762,8 @@ function toggleAdminBookingFields(){
   document.getElementById("admOwnerEmailField").style.display = hasOwn ? "none" : "block";
   document.getElementById("admWeb3FormsKeyField").style.display = hasOwn ? "none" : "block";
   document.getElementById("admExternalUrlField").style.display = hasOwn ? "block" : "none";
+  document.getElementById("admBookingTypeField").style.display = hasOwn ? "none" : "block";
+  document.getElementById("admReservationNoteField").style.display = hasOwn ? "none" : "block";
   updateRequiredAdminFields();
 }
 
@@ -2685,7 +2775,10 @@ function toggleLocationOnlyFields(){
   document.getElementById("admOwnerEmailField").style.display = locationOnly ? "none" : "block";
   document.getElementById("admWeb3FormsKeyField").style.display = locationOnly ? "none" : "block";
   document.getElementById("admExternalUrlField").style.display = "none";
+  document.getElementById("admBookingTypeField").style.display = locationOnly ? "none" : "block";
+  document.getElementById("admReservationNoteField").style.display = locationOnly ? "none" : "block";
   if(locationOnly) document.getElementById("admHasOwnSystem").checked = false;
+  if(!locationOnly) toggleAdminBookingFields(); // re-apply hasOwn-based visibility, not just location-only's
   updateRequiredAdminFields();
 }
 
@@ -2754,6 +2847,8 @@ async function saveListingFromAdmin(e){
     amenities: document.getElementById("admAmenities").value.split(",").map(s => s.trim()).filter(Boolean),
     services: document.getElementById("admServices").value.split(",").map(s => s.trim()).filter(Boolean),
     locationOnly: document.getElementById("admLocationOnly").checked,
+    bookingType: document.getElementById("admBookingType").value,
+    reservationNote: document.getElementById("admReservationNote").value.trim(),
     rooms: document.getElementById("admRooms").value.split("\n").map(s => s.trim()).filter(Boolean).map((line, i) => {
       const parts = line.split("|").map(p => p.trim());
       return { id: "r" + (i+1), name: parts[0] || "Room", price: Number(parts[1]) || 0, capacity: Number(parts[2]) || 2, image: parts[3] || "" };
@@ -2794,6 +2889,8 @@ function editListing(id){
   document.getElementById("admAmenities").value = l.amenities.join(", ");
   document.getElementById("admServices").value = (l.services || []).join(", ");
   document.getElementById("admLocationOnly").checked = !!l.locationOnly;
+  document.getElementById("admBookingType").value = l.bookingType || "stay";
+  document.getElementById("admReservationNote").value = l.reservationNote || "";
   document.getElementById("admRooms").value = (l.rooms || []).map(r => [r.name, r.price, r.capacity, r.image || ""].join(" | ")).join("\n");
   document.getElementById("admVerified").checked = l.verified;
   document.getElementById("admGuestFavorite").checked = l.guestFavorite;
