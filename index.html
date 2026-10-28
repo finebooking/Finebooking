@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fine Booking UG — Hotels, Airbnbs and Accomodation across Uganda</title><link rel="icon" href="188B9B8B-400F-4770-BE60-A8D7E7F58A99.png">
+<title>Fine Booking — Stays across Uganda</title>
 <meta name="description" content="Find hotels, guesthouses, motels, Airbnbs and restaurants across Uganda. No accounts, no booking fees — message or book directly with the host.">
-<meta property="og:title" content="Fine Booking UG — Stays across Uganda">
+<meta property="og:title" content="Fine Booking — Stays across Uganda">
 <meta property="og:description" content="Find hotels, guesthouses, motels, Airbnbs and restaurants across Uganda. No accounts, no booking fees.">
 <meta property="og:image" content="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=70&auto=format">
 <meta property="og:type" content="website">
@@ -107,6 +107,8 @@
   }
   .search-panel.open{display:block;}
   .icon-tabs{display:flex;gap:8px;overflow-x:auto;padding:0 0 16px;scrollbar-width:none;}
+  .category-row{max-width:620px;margin:0 auto 20px;justify-content:center;padding:0 4px 4px;}
+  @media (max-width:720px){ .category-row{justify-content:flex-start;max-width:100%;} }
   .icon-tabs::-webkit-scrollbar{display:none;}
   .icon-tab{
     flex-shrink:0;display:flex;align-items:center;gap:7px;border:1px solid var(--border);
@@ -128,6 +130,7 @@
   }
   .autocomplete-list div{padding:9px 12px;font-size:14px;cursor:pointer;}
   .autocomplete-list div:hover{background:var(--bg-soft);}
+  .load-more-btn{padding:12px 28px;border-radius:999px;font-weight:600;font-size:14px;}
   .price-range-row{display:flex;align-items:center;gap:10px;}
   .price-range-row input[type=range]{flex:1;accent-color:var(--accent);}
   .price-range-label{font-size:13px;color:var(--text-soft);white-space:nowrap;min-width:120px;text-align:right;}
@@ -403,16 +406,18 @@
         <span id="searchPillLabel">Start your search</span>
       </div>
 
+      <div class="icon-tabs category-row">
+        <button class="icon-tab active" data-cat="all" onclick="filterCategory('all')">🏠 All</button>
+        <button class="icon-tab" data-cat="Hotel" onclick="filterCategory('Hotel')">🏨 Hotels</button>
+        <button class="icon-tab" data-cat="Guesthouse" onclick="filterCategory('Guesthouse')">🏡 Guesthouses</button>
+        <button class="icon-tab" data-cat="Motel" onclick="filterCategory('Motel')">🛏️ Motels</button>
+        <button class="icon-tab" data-cat="Airbnb" onclick="filterCategory('Airbnb')">🔑 Airbnbs</button>
+        <button class="icon-tab" data-cat="Restaurant" onclick="filterCategory('Restaurant')">🍽️ Restaurants</button>
+        <button class="icon-tab" data-cat="Cafe" onclick="filterCategory('Cafe')">☕ Cafes</button>
+        <button class="icon-tab" data-cat="Other" onclick="filterCategory('Other')">📍 Others</button>
+      </div>
+
       <div class="search-panel" id="searchPanel">
-        <div class="icon-tabs">
-          <button class="icon-tab active" data-cat="all" onclick="filterCategory('all')">🏠 All</button>
-          <button class="icon-tab" data-cat="Hotel" onclick="filterCategory('Hotel')">🏨 Hotels</button>
-          <button class="icon-tab" data-cat="Guesthouse" onclick="filterCategory('Guesthouse')">🏡 Guesthouses</button>
-          <button class="icon-tab" data-cat="Motel" onclick="filterCategory('Motel')">🛏️ Motels</button>
-          <button class="icon-tab" data-cat="Airbnb" onclick="filterCategory('Airbnb')">🔑 Airbnbs</button>
-          <button class="icon-tab" data-cat="Restaurant" onclick="filterCategory('Restaurant')">🍽️ Restaurants</button>
-          <button class="icon-tab" data-cat="Other" onclick="filterCategory('Other')">📍 Others</button>
-        </div>
         <div class="search-row">
           <div class="field">
             <label>Location</label>
@@ -452,6 +457,7 @@
     </div>
 
     <div class="grid" id="listingsGrid"></div>
+    <div id="loadMoreWrap" style="text-align:center;margin-top:24px;"></div>
   </div>
 
   <section class="how">
@@ -784,6 +790,7 @@
               <option>Motel</option>
               <option>Airbnb</option>
               <option>Restaurant</option>
+              <option>Cafe</option>
               <option>Other</option>
             </select>
           </div>
@@ -803,9 +810,9 @@
             <label>Price (UGX, per night or per person)</label>
             <input type="number" id="admPrice" required min="0">
           </div>
-          <div class="form-field">
-            <label>Guest capacity</label>
-            <input type="number" id="admCapacity" value="2" min="1">
+          <div class="form-field" id="admCapacityField">
+            <label>Guest capacity (optional — leave blank if it doesn't apply)</label>
+            <input type="number" id="admCapacity" min="1">
           </div>
           <div class="form-field">
             <label>Latitude</label>
@@ -832,7 +839,7 @@
             <label>Amenities (comma-separated)</label>
             <input type="text" id="admAmenities" placeholder="Free WiFi, Hot water, Parking">
           </div>
-          <div class="form-field full">
+          <div class="form-field full" id="admRoomsField">
             <label>Room types (optional — for places with more than one room/price, one per line: Name | Price | Capacity | Image URL)</label>
             <textarea id="admRooms" placeholder="Garden View Room | 150000 | 2 | https://...&#10;Family Suite | 230000 | 4 | https://..."></textarea>
             <p style="font-size:12.5px;color:var(--text-soft);margin-top:6px;">Leave blank if this place has one single price — the Price field above will be used instead.</p>
@@ -933,6 +940,7 @@
               <option>Motel</option>
               <option>Airbnb</option>
               <option>Restaurant</option>
+              <option>Cafe</option>
               <option>Other</option>
             </select>
           </div>
@@ -1260,7 +1268,7 @@ function cardHTML(l){
           ${l.basic ? '' : `<div class="card-rating">★ ${l.rating.toFixed(2)}</div>`}
         </div>
         <div class="card-loc">${l.location}${hasRooms ? ' · ' + l.rooms.length + ' room types' : ''}</div>
-        <div class="card-price-line"><b>${priceLabel}</b> ${l.basic ? '' : `<span>${l.category === "Restaurant" ? "avg / person" : "/ night"}</span>`}</div>
+        <div class="card-price-line"><b>${priceLabel}</b> ${l.basic ? '' : `<span>${isDiningCategory(l.category) ? "avg / person" : "/ night"}</span>`}</div>
       </div>
     </div>`;
 }
@@ -1333,23 +1341,19 @@ function renderListings(){
       }
     });
     grid.innerHTML = gridHTML;
-    if(items.length > visible.length){
-      grid.insertAdjacentHTML("afterend", `
-        <div id="loadMoreWrap" style="text-align:center;margin-top:24px;">
-          <button class="btn-ghost" onclick="loadMoreListings()">Show more places (${items.length - visible.length} more)</button>
-        </div>
-      `);
-    }
   }
+
+  const loadMoreWrap = document.getElementById("loadMoreWrap");
+  loadMoreWrap.innerHTML = (items.length > 0 && items.length > (state.visibleCount || PAGE_SIZE))
+    ? `<button class="btn-ghost load-more-btn" onclick="loadMoreListings()">Show more places</button>`
+    : "";
 
   renderCuratedRows();
 }
 
-const PAGE_SIZE = 9;
+const PAGE_SIZE = 10;
 function loadMoreListings(){
   state.visibleCount = (state.visibleCount || PAGE_SIZE) + PAGE_SIZE;
-  const wrap = document.getElementById("loadMoreWrap");
-  if(wrap) wrap.remove();
   renderListings();
 }
 
@@ -1363,6 +1367,7 @@ function showSaved(){
     ? items.map(cardHTML).join("")
     : '<div class="no-results">Nothing saved yet — tap the heart on any listing to keep it here.</div>';
   document.getElementById("resultsCount").textContent = "";
+  document.getElementById("loadMoreWrap").innerHTML = "";
   showView("view-home");
   document.querySelectorAll(".bottom-nav .nav-item").forEach(b => b.classList.remove("active"));
   document.getElementById("navSaved").classList.add("active");
@@ -1475,8 +1480,8 @@ function onLocationInput(val){
   const nameMatches = listings.filter(l => l.name.toLowerCase().includes(q)).slice(0, 5);
   if(areaMatches.length === 0 && nameMatches.length === 0){ list.style.display = "none"; renderListings(); return; }
   list.innerHTML =
-    areaMatches.map(m => `<div onclick="selectLocation('${m.replace(/'/g,"\\'")}')">📍 ${m}</div>`).join("") +
-    nameMatches.map(l => `<div onclick="selectLocation('${l.name.replace(/'/g,"\\'")}')">${l.category === "Restaurant" ? "🍽️" : "🏨"} ${l.name}</div>`).join("");
+    nameMatches.map(l => `<div onclick="selectListingFromSearch(${l.id})">${isDiningCategory(l.category) ? "🍽️" : "🏨"} ${l.name} <span style="color:var(--text-soft);font-weight:400;">· ${l.location}</span></div>`).join("") +
+    areaMatches.map(m => `<div onclick="selectLocation('${m.replace(/'/g,"\\'")}')" style="color:var(--text-soft);font-size:13px;">📍 ${m}</div>`).join("");
   list.style.display = "block";
   renderListings();
 }
@@ -1535,7 +1540,7 @@ function openListing(id){
         <div class="detail-head">
           <div>
             <h1>${l.name}</h1>
-            <div class="detail-loc">${l.location} · fits ${l.capacity} guests</div>
+            <div class="detail-loc">${l.location}${l.capacity ? ' · fits ' + l.capacity + ' guests' : ''}</div>
             ${l.verified ? '<div class="verified-tag">✓ Verified by Fine Booking</div>' : ''}
           </div>
         </div>
@@ -1756,7 +1761,7 @@ function bookingBoxHTML(l){
   const price = room ? room.price : l.price;
   const priceNote = room ? ` <span style="font-weight:400;color:var(--text-soft);">(${room.name})</span>` : "";
   const priceLine = price != null
-    ? `${formatUGX(price)}${priceNote} <span>/ ${l.category === "Restaurant" ? "person" : "night"}</span>`
+    ? `${formatUGX(price)}${priceNote} <span>/ ${isDiningCategory(l.category) ? "person" : "night"}</span>`
     : `See price on their site`;
   if(l.hasOwnSystem){
     return `
@@ -1854,6 +1859,10 @@ function updateEstimate(){
     <div><span>Rooms</span><b>${roomCount}</b></div>
     <div><span>Estimated total</span><b>${formatUGX(total)}</b></div>
   `;
+}
+
+function isDiningCategory(cat){
+  return cat === "Restaurant" || cat === "Cafe";
 }
 
 function bookingDatesLabel(b){
@@ -2835,7 +2844,7 @@ async function saveListingFromAdmin(e){
     category: document.getElementById("admCategory").value,
     location: document.getElementById("admLocation").value,
     price: document.getElementById("admPrice").value ? Number(document.getElementById("admPrice").value) : null,
-    capacity: Number(document.getElementById("admCapacity").value || 1),
+    capacity: document.getElementById("admCapacity").value ? Number(document.getElementById("admCapacity").value) : null,
     lat: Number(document.getElementById("admLat").value),
     lng: Number(document.getElementById("admLng").value),
     rating: 4.8,
@@ -2881,7 +2890,7 @@ function editListing(id){
   document.getElementById("admCategory").value = l.category;
   document.getElementById("admLocation").value = l.location;
   document.getElementById("admPrice").value = l.price || "";
-  document.getElementById("admCapacity").value = l.capacity;
+  document.getElementById("admCapacity").value = l.capacity || "";
   document.getElementById("admLat").value = l.lat;
   document.getElementById("admLng").value = l.lng;
   document.getElementById("admDescription").value = l.description;
