@@ -32,6 +32,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <style>
   :root{
     --bg:#FFFFFF;
@@ -647,10 +648,10 @@
 
     <div id="adminLoginBox" style="max-width:360px;margin:60px auto;text-align:center;">
       <h1 style="font-size:22px;margin-bottom:10px;">Admin access</h1>
-      <p style="color:var(--text-soft);font-size:14px;margin-bottom:18px;">Enter your admin password to manage listings.</p>
-      <input type="password" id="adminPasswordInput" placeholder="Password" style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:16px;margin-bottom:12px;">
+      <p style="color:var(--text-soft);font-size:14px;margin-bottom:18px;">Sign in to manage listings.</p>
+      <input type="email" id="adminEmailInput" placeholder="Email" autocomplete="username" style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:16px;margin-bottom:10px;">
+      <input type="password" id="adminPasswordInput" placeholder="Password" autocomplete="current-password" style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:16px;margin-bottom:12px;">
       <button class="btn-primary" style="width:100%;padding:11px;" onclick="checkAdminPassword()">Enter</button>
-      <p style="font-size:12px;color:var(--text-soft);margin-top:14px;">Note: this is a basic screen lock for a demo, not real security — don't rely on it to protect sensitive data.</p>
     </div>
 
     <div id="adminPanel" style="display:none;">
@@ -1149,6 +1150,7 @@ const FIREBASE_CONFIG = {
 
 let db = null;
 let storage = null;
+let auth = null;
 let storageReady = false;
 let firebaseReady = false;
 let firebaseStatusReason = "";
@@ -1160,6 +1162,7 @@ try{
   } else {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.firestore();
+    try{ auth = firebase.auth(); }catch(authErr){ console.log("Firebase Auth not available:", authErr); }
     firebaseReady = true;
     firebaseStatusReason = "Connected.";
     try{ storage = firebase.storage(); storageReady = true; }
@@ -2274,7 +2277,6 @@ async function submitBooking(e){
 }
 
 /* ---------- Admin panel ---------- */
-const ADMIN_PASSWORD = "finebooking2026"; // change this before sharing the file with anyone
 let adminUnlocked = false;
 
 function isDefaultId(id){
@@ -2408,19 +2410,30 @@ function openAdmin(){
     renderSubmissionsTable();
   }
 }
-function checkAdminPassword(){
-  const val = document.getElementById("adminPasswordInput").value;
-  if(val === ADMIN_PASSWORD){
-    adminUnlocked = true;
-    document.getElementById("adminLoginBox").style.display = "none";
-    document.getElementById("adminPanel").style.display = "block";
-    renderFirebaseStatusBanner();
-    renderAdminTable();
-    renderBookingsTable();
-    renderSubmissionsTable();
-  } else {
-    alert("That password isn't right.");
+async function checkAdminPassword(){
+  const email = document.getElementById("adminEmailInput").value.trim();
+  const pass = document.getElementById("adminPasswordInput").value;
+  if(!auth){ alert("Login isn't available. Firebase isn't connected."); return; }
+  try{
+    await auth.signInWithEmailAndPassword(email, pass);
+    unlockAdmin();
+  }catch(err){
+    alert("That email or password isn't right.");
   }
+}
+function unlockAdmin(){
+  adminUnlocked = true;
+  document.getElementById("adminLoginBox").style.display = "none";
+  document.getElementById("adminPanel").style.display = "block";
+  renderFirebaseStatusBanner();
+  renderAdminTable();
+  renderBookingsTable();
+  renderSubmissionsTable();
+}
+if(auth){
+  auth.onAuthStateChanged(u => {
+    if(u && !adminUnlocked && location.hash === "#" + SECRET_ADMIN_TOKEN) unlockAdmin();
+  });
 }
 
 async function renderBookingsTable(){
