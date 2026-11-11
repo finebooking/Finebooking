@@ -131,6 +131,12 @@
   .autocomplete-list div{padding:9px 12px;font-size:14px;cursor:pointer;}
   .autocomplete-list div:hover{background:var(--bg-soft);}
   .load-more-btn{padding:12px 28px;border-radius:999px;font-weight:600;font-size:14px;}
+  .host-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:10px;}
+  .host-photo-item{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:var(--bg-soft);border:1px solid var(--border);}
+  .host-photo-item img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;}
+  .host-photo-item button{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:15px;line-height:1;cursor:pointer;}
+  .sub-photos{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;}
+  .sub-photos img{width:64px;height:64px;object-fit:cover;object-position:center;border-radius:8px;background:var(--bg-soft);}
   .price-range-row{display:flex;align-items:center;gap:10px;}
   .price-range-row input[type=range]{flex:1;accent-color:var(--accent);}
   .price-range-label{font-size:13px;color:var(--text-soft);white-space:nowrap;min-width:120px;text-align:right;}
@@ -673,6 +679,15 @@
       </div>
 
       <div class="section-title">
+        <h2>Host submissions <span id="submissionsCountBadge"></span></h2>
+        <span></span>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:10px;">
+        <p style="font-size:13.5px;color:var(--text-soft);margin:0 0 14px;">Places hosts sent in themselves. Nothing here is public until you tap "Review &amp; publish", check it over, add the map position and save.</p>
+        <div id="submissionsTable"><p style="font-size:13.5px;color:var(--text-soft);">Loading...</p></div>
+      </div>
+
+      <div class="section-title">
         <h2>Partners (Recommended banner)</h2>
         <span></span>
       </div>
@@ -961,20 +976,51 @@
             <input type="email" id="hostEmail" required>
           </div>
           <div class="form-field">
-            <label>Price (UGX, per night or per person)</label>
-            <input type="number" id="hostPrice" min="0" required>
+            <label>What can guests do here?</label>
+            <select id="hostBookingType">
+              <option value="stay">Book a stay (rooms, Airbnb)</option>
+              <option value="table">Reserve a table (restaurant, cafe)</option>
+              <option value="location">Just show my location (no booking)</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Price in UGX (optional — per night or per person)</label>
+            <input type="number" id="hostPrice" min="0">
+          </div>
+          <div class="form-field">
+            <label>Guest capacity (optional)</label>
+            <input type="number" id="hostCapacity" min="1">
+          </div>
+          <div class="form-field">
+            <label>Reservation terms (optional)</label>
+            <input type="text" id="hostReservationNote" placeholder="e.g. Free reservation, or deposit needed">
           </div>
           <div class="form-field full">
             <label>Describe your place</label>
-            <textarea id="hostDescription" required placeholder="Rooms, amenities, what makes it worth staying/eating at..."></textarea>
+            <textarea id="hostDescription" required placeholder="Rooms, what makes it worth staying/eating at..."></textarea>
           </div>
           <div class="form-field full">
-            <label>Add one photo (up to 5MB — full quality, sent as a real attachment)</label>
-            <input type="file" id="hostPhoto" accept="image/*">
-            <p style="font-size:12.5px;color:var(--text-soft);margin-top:6px;">Have more photos? Once you get our confirmation email, just reply to it with the rest attached — that keeps them full quality too.</p>
+            <label>Amenities (optional — separate with commas)</label>
+            <input type="text" id="hostAmenities" placeholder="Wi-Fi, Parking, Breakfast, Pool">
+          </div>
+          <div class="form-field full">
+            <label>Services (optional — separate with commas)</label>
+            <input type="text" id="hostServices" placeholder="Airport pickup, Laundry, Event hosting">
+          </div>
+          <div class="form-field full">
+            <label>Room types (optional — one per line: Name | Price | Capacity)</label>
+            <textarea id="hostRooms" placeholder="Standard Room | 120000 | 2&#10;Family Suite | 230000 | 4"></textarea>
+          </div>
+          <div class="form-field full">
+            <label>Photos (up to 8)</label>
+            <input type="file" id="hostPhoto" accept="image/*" multiple style="display:none;" onchange="addHostPhotos(this)">
+            <button type="button" class="btn-ghost" onclick="document.getElementById('hostPhoto').click()">＋ Add photos from your phone</button>
+            <div id="hostPhotoPreview" class="host-photo-grid"></div>
+            <p style="font-size:12.5px;color:var(--text-soft);margin-top:6px;">Photos are shrunk automatically on your phone, so they upload fast even on slow data.</p>
           </div>
         </div>
         <button type="submit" class="btn-primary" style="width:100%;padding:13px;font-size:15px;margin-top:10px;">Submit for review</button>
+        <p id="hostSubmitStatus" style="font-size:13px;color:var(--accent-dark);margin:10px 0 0;text-align:center;"></p>
         <p class="response-note">We'll review and reach out on WhatsApp or email before your place goes live — nothing is published automatically.</p>
       </form>
     </div>
@@ -2359,6 +2405,7 @@ function openAdmin(){
     renderFirebaseStatusBanner();
     renderAdminTable();
     renderBookingsTable();
+    renderSubmissionsTable();
   }
 }
 function checkAdminPassword(){
@@ -2370,6 +2417,7 @@ function checkAdminPassword(){
     renderFirebaseStatusBanner();
     renderAdminTable();
     renderBookingsTable();
+    renderSubmissionsTable();
   } else {
     alert("That password isn't right.");
   }
@@ -2792,6 +2840,7 @@ function toggleLocationOnlyFields(){
 }
 
 function resetAdminForm(){
+  pendingSubmissionId = null;
   document.getElementById("adminForm").reset();
   document.getElementById("adminEditId").value = "";
   document.getElementById("adminFormTitle").textContent = "Add a new listing";
@@ -2875,9 +2924,12 @@ async function saveListingFromAdmin(e){
   } else {
     await persistListing(listing);
   }
+  const finishedSubmissionId = pendingSubmissionId;
+  if(finishedSubmissionId) await removeSubmission(finishedSubmissionId);
   await refreshAllListings();
   resetAdminForm();
   renderAdminTable();
+  if(finishedSubmissionId) renderSubmissionsTable();
   alert("Saved — " + (firebaseReady ? "live for everyone now." : "visible on this browser for now (connect Firebase to make it live for everyone)."));
 }
 
@@ -2953,40 +3005,278 @@ function renderAdminTable(){
   `).join("");
 }
 
+/* ---------- Host submissions: photos go to Cloudflare R2, details go to Firestore ---------- */
+// Paste your Worker's address here (the link ending in workers.dev), no slash at the end.
+const UPLOAD_WORKER_URL = "PASTE_YOUR_WORKER_LINK_HERE";
+const MAX_HOST_PHOTOS = 8;
+let hostPhotos = [];
+let pendingSubmissionId = null;
+let adminSubmissions = [];
+
+function hostEsc(str){
+  return String(str == null ? "" : str).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function addHostPhotos(input){
+  const picked = Array.from(input.files || []);
+  let skipped = 0;
+  picked.forEach(f => {
+    const looksLikeImage = (f.type && f.type.indexOf("image/") === 0) || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name);
+    if(looksLikeImage && hostPhotos.length < MAX_HOST_PHOTOS) hostPhotos.push(f); else skipped++;
+  });
+  input.value = "";
+  if(skipped) alert("You can add up to " + MAX_HOST_PHOTOS + " photos — some were left out.");
+  renderHostPhotoPreview();
+}
+
+function removeHostPhoto(i){
+  hostPhotos.splice(i, 1);
+  renderHostPhotoPreview();
+}
+
+function renderHostPhotoPreview(){
+  const el = document.getElementById("hostPhotoPreview");
+  if(!el) return;
+  el.innerHTML = "";
+  hostPhotos.forEach((f, i) => {
+    const item = document.createElement("div");
+    item.className = "host-photo-item";
+    const img = document.createElement("img");
+    img.alt = "";
+    img.onerror = function(){ this.style.display = "none"; };
+    img.src = URL.createObjectURL(f);
+    const x = document.createElement("button");
+    x.type = "button";
+    x.textContent = "×";
+    x.setAttribute("aria-label", "Remove photo");
+    x.onclick = function(){ removeHostPhoto(i); };
+    item.appendChild(img);
+    item.appendChild(x);
+    el.appendChild(item);
+  });
+}
+
+// Shrinks to max 1600px and converts to JPEG on the phone itself.
+async function prepareHostPhoto(file){
+  let source;
+  try{
+    source = await createImageBitmap(file);
+  }catch(err){
+    source = await new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("This photo format can't be read on your phone")); };
+      img.src = url;
+    });
+  }
+  const w0 = source.width || source.naturalWidth;
+  const h0 = source.height || source.naturalHeight;
+  const scale = Math.min(1, 1600 / Math.max(w0, h0));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(w0 * scale);
+  canvas.height = Math.round(h0 * scale);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.82));
+  if(!blob) throw new Error("Could not prepare this photo");
+  return blob;
+}
+
+async function uploadHostPhoto(blob){
+  const fd = new FormData();
+  fd.append("photo", blob, "photo.jpg");
+  const res = await fetch(UPLOAD_WORKER_URL, { method:"POST", body: fd });
+  let data = {};
+  try{ data = await res.json(); }catch(err){}
+  if(!res.ok || !data.url) throw new Error(data.error || "Upload failed");
+  return data.url;
+}
+
+async function persistSubmission(sub){
+  if(!firebaseReady) return false;
+  try{ await db.collection("submissions").doc(sub.id).set(sub); return true; }
+  catch(err){ console.log("Submission write failed:", err); return false; }
+}
+
+async function fetchSubmissions(){
+  if(!firebaseReady) return [];
+  try{
+    const snap = await db.collection("submissions").orderBy("createdAt", "desc").get();
+    return snap.docs.map(d => d.data());
+  }catch(err){ console.log("Submission read failed:", err); return []; }
+}
+
+async function removeSubmission(id){
+  if(!firebaseReady) return;
+  try{ await db.collection("submissions").doc(id).delete(); }
+  catch(err){ console.log("Submission delete failed:", err); }
+}
+
 async function submitHostForm(e){
   e.preventDefault();
+  const honeypot = document.querySelector('#hostForm input[name="_gotcha"]');
+  if(honeypot && honeypot.value) return;
+
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const statusEl = document.getElementById("hostSubmitStatus");
+  submitBtn.disabled = true;
+
+  // 1) Photos -> Cloudflare R2 through the Worker
+  const photoUrls = [];
+  let failed = 0;
+  const workerReady = UPLOAD_WORKER_URL.indexOf("https://") === 0;
+  if(hostPhotos.length > 0 && !workerReady){
+    failed = hostPhotos.length;
+  } else {
+    for(let i = 0; i < hostPhotos.length; i++){
+      statusEl.textContent = "Uploading photo " + (i + 1) + " of " + hostPhotos.length + "...";
+      try{
+        const blob = await prepareHostPhoto(hostPhotos[i]);
+        photoUrls.push(await uploadHostPhoto(blob));
+      }catch(err){
+        console.log("Host photo failed:", err);
+        failed++;
+      }
+    }
+  }
+  if(failed > 0){
+    const go = confirm(failed + " photo(s) didn't upload. Send your details anyway? (You can reply to our email with the photos.)");
+    if(!go){ submitBtn.disabled = false; statusEl.textContent = ""; return; }
+  }
+
+  // 2) Details
+  statusEl.textContent = "Sending your details...";
+  const v = id => document.getElementById(id).value.trim();
+  const sub = {
+    id: "s" + Date.now() + Math.random().toString(36).slice(2, 6),
+    status: "pending",
+    createdAt: Date.now(),
+    name: v("hostPlaceName"),
+    category: v("hostCategory"),
+    location: v("hostLocation"),
+    hostName: v("hostName"),
+    hostPhone: v("hostPhone"),
+    hostEmail: v("hostEmail"),
+    bookingType: v("hostBookingType"),
+    price: v("hostPrice") ? Number(v("hostPrice")) : null,
+    capacity: v("hostCapacity") ? Number(v("hostCapacity")) : null,
+    reservationNote: v("hostReservationNote"),
+    description: v("hostDescription"),
+    amenities: v("hostAmenities"),
+    services: v("hostServices"),
+    rooms: document.getElementById("hostRooms").value.trim(),
+    photos: photoUrls
+  };
+
+  const saved = await persistSubmission(sub);
+
+  // 3) Email notification to you (kept, so nothing is lost even if Firestore fails)
   const formData = new FormData();
   formData.append("access_key", WEB3FORMS_ACCESS_KEY);
-  formData.append("subject", "New host submission — " + document.getElementById("hostPlaceName").value);
-  formData.append("place_name", document.getElementById("hostPlaceName").value);
-  formData.append("category", document.getElementById("hostCategory").value);
-  formData.append("location", document.getElementById("hostLocation").value);
-  formData.append("host_name", document.getElementById("hostName").value);
-  formData.append("host_phone", document.getElementById("hostPhone").value);
-  formData.append("host_email", document.getElementById("hostEmail").value);
-  formData.append("price", document.getElementById("hostPrice").value);
-  formData.append("description", document.getElementById("hostDescription").value);
-
-  const photoInput = document.getElementById("hostPhoto");
-  if(photoInput.files.length > 0){
-    const file = photoInput.files[0];
-    if(file.size > 5 * 1024 * 1024){
-      alert("That photo is over 5MB — please choose a smaller one, or just reply with it after submitting.");
-      return;
-    }
-    formData.append("attachment", file);
-  }
-
+  formData.append("subject", "New host submission — " + sub.name);
+  formData.append("place_name", sub.name);
+  formData.append("category", sub.category);
+  formData.append("location", sub.location);
+  formData.append("host_name", sub.hostName);
+  formData.append("host_phone", sub.hostPhone);
+  formData.append("host_email", sub.hostEmail);
+  formData.append("booking_type", sub.bookingType);
+  formData.append("price", sub.price == null ? "" : sub.price);
+  formData.append("capacity", sub.capacity == null ? "" : sub.capacity);
+  formData.append("reservation_terms", sub.reservationNote);
+  formData.append("description", sub.description);
+  formData.append("amenities", sub.amenities);
+  formData.append("services", sub.services);
+  formData.append("rooms", sub.rooms);
+  formData.append("photo_links", photoUrls.join("\n"));
+  let emailed = false;
   try{
-    // Replace WEB3FORMS_ACCESS_KEY above with your real key from web3forms.com
-    await fetch("https://api.web3forms.com/submit", { method:"POST", body: formData });
+    const res = await fetch("https://api.web3forms.com/submit", { method:"POST", body: formData });
+    emailed = res.ok;
   }catch(err){
-    console.log("Host form submission error (demo mode, no live key set):", err);
+    console.log("Host form email error:", err);
   }
 
+  submitBtn.disabled = false;
+  statusEl.textContent = "";
+  if(!saved && !emailed){
+    alert("We couldn't send your submission — please check your connection and try again.");
+    return;
+  }
   alert("Thanks — we've got your submission and will reach out on WhatsApp or email soon.");
   document.getElementById("hostForm").reset();
+  hostPhotos = [];
+  renderHostPhotoPreview();
   showView("view-home");
+}
+
+/* ---------- Admin: host submissions list ---------- */
+async function renderSubmissionsTable(){
+  const el = document.getElementById("submissionsTable");
+  if(!el) return;
+  el.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">Loading...</p>';
+  adminSubmissions = await fetchSubmissions();
+  const badge = document.getElementById("submissionsCountBadge");
+  if(badge) badge.textContent = adminSubmissions.length ? "(" + adminSubmissions.length + ")" : "";
+  if(adminSubmissions.length === 0){
+    el.innerHTML = '<p style="font-size:13.5px;color:var(--text-soft);">No host submissions waiting.</p>';
+    return;
+  }
+  el.innerHTML = adminSubmissions.map(sub => {
+    const digits = String(sub.hostPhone || "").replace(/[^0-9]/g, "");
+    const wa = digits.charAt(0) === "0" ? "256" + digits.slice(1) : digits;
+    const photos = (sub.photos || []).filter(u => /^https:\/\//.test(u));
+    const typeLabel = sub.bookingType === "table" ? "Reserve a table" : sub.bookingType === "location" ? "Location only" : "Book a stay";
+    const when = sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : "";
+    return `
+    <div style="border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;">
+      <div style="font-weight:600;font-size:15px;">${hostEsc(sub.name)} <span style="font-weight:400;color:var(--text-soft);font-size:12.5px;">· ${hostEsc(sub.category)} · ${hostEsc(typeLabel)} · ${hostEsc(when)}</span></div>
+      <div style="font-size:13px;color:var(--text-soft);margin-top:2px;">${hostEsc(sub.location)}${sub.price != null ? " · " + formatUGX(sub.price) : ""}${sub.capacity ? " · fits " + hostEsc(sub.capacity) : ""}</div>
+      <div style="font-size:13px;margin-top:6px;">${hostEsc(sub.hostName)} · <a href="https://wa.me/${hostEsc(wa)}" target="_blank" rel="noopener">${hostEsc(sub.hostPhone)}</a> · ${hostEsc(sub.hostEmail)}</div>
+      ${photos.length ? '<div class="sub-photos">' + photos.map(u => '<a href="' + hostEsc(u) + '" target="_blank" rel="noopener"><img src="' + hostEsc(u) + '" loading="lazy" alt=""></a>').join("") + '</div>' : '<div style="font-size:12.5px;color:var(--text-soft);margin:6px 0;">No photos uploaded.</div>'}
+      <div style="font-size:13px;color:var(--text-soft);margin-bottom:10px;">${hostEsc((sub.description || "").slice(0, 160))}${(sub.description || "").length > 160 ? "..." : ""}</div>
+      <button class="btn-primary" style="padding:8px 16px;" onclick="reviewSubmission('${hostEsc(sub.id)}')">Review &amp; publish</button>
+      <button class="btn-ghost" onclick="rejectSubmission('${hostEsc(sub.id)}')">Reject</button>
+    </div>`;
+  }).join("");
+}
+
+function reviewSubmission(id){
+  const sub = adminSubmissions.find(x => x.id === id);
+  if(!sub) return;
+  resetAdminForm();
+  const set = (fid, val) => { document.getElementById(fid).value = val == null ? "" : val; };
+  set("admName", sub.name);
+  set("admCategory", sub.category);
+  set("admLocation", sub.location);
+  set("admPrice", sub.price);
+  set("admCapacity", sub.capacity);
+  set("admDescription", sub.description);
+  set("admImages", (sub.photos || []).filter(u => /^https:\/\//.test(u)).join("\n"));
+  set("admAmenities", sub.amenities);
+  set("admServices", sub.services);
+  set("admReservationNote", sub.reservationNote);
+  set("admBookingType", sub.bookingType === "table" ? "table" : "stay");
+  document.getElementById("admLocationOnly").checked = sub.bookingType === "location";
+  const phoneDigits = String(sub.hostPhone || "").replace(/[^0-9]/g, "");
+  set("admOwnerPhone", phoneDigits.charAt(0) === "0" ? "256" + phoneDigits.slice(1) : phoneDigits);
+  set("admOwnerEmail", sub.hostEmail);
+  set("admRooms", String(sub.rooms || ""));
+  pendingSubmissionId = sub.id;
+  document.getElementById("adminFormTitle").textContent = "Publish host submission — add the map position, then Save";
+  toggleQuickAdd();
+  toggleAdminBookingFields();
+  toggleLocationOnlyFields();
+  document.getElementById("adminForm").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+async function rejectSubmission(id){
+  if(!confirm("Reject and remove this submission? This can't be undone.")) return;
+  await removeSubmission(id);
+  renderSubmissionsTable();
 }
 
 /* ---------- Init ---------- */
