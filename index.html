@@ -1091,6 +1091,7 @@
 
 /* ============================================================
    ADD TO HOME SCREEN SUPPORT
+   ADD TO HOME SCREEN SUPPORT
    ------------------------------------------------------------
    Draws a simple "FB" app icon on a canvas at load time (no
    separate image file needed since this is one static HTML
@@ -1101,32 +1102,79 @@
 ============================================================ */
 (function setupAddToHomeScreen(){
   try{
-    const logoUrl = new URL("F7E7DAEF-5F48-451D-A307-8A3EBAB4E401.png", location.href).href;
+    const logoUrl = new URL("188B9B8B-400F-4770-BE60-A8D7E7F58A99.png", location.href).href;
 
     const appleIcon = document.createElement("link");
     appleIcon.rel = "apple-touch-icon";
     appleIcon.href = logoUrl;
     document.head.appendChild(appleIcon);
 
-    const manifest = {
-      name: "Fine Booking UG",
-      short_name: "Fine Booking",
-      start_url: location.origin + "/",
-      display: "standalone",
-      background_color: "#FFFFFF",
-      theme_color: "#E0475A",
-      icons: [
-        { src: logoUrl, sizes: "192x192", type: "image/png" },
-        { src: logoUrl, sizes: "512x512", type: "image/png" }
-      ]
-    };
-    const manifestBlob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
     const manifestLink = document.createElement("link");
     manifestLink.rel = "manifest";
-    manifestLink.href = URL.createObjectURL(manifestBlob);
+    manifestLink.href = "manifest.webmanifest";
     document.head.appendChild(manifestLink);
+
+    if("serviceWorker" in navigator && location.protocol === "https:"){
+      navigator.serviceWorker.register("sw.js").catch(err => console.log("Service worker not registered:", err));
+    }
   }catch(err){
     console.log("Add-to-home-screen setup skipped:", err);
+  }
+})();
+
+/* Asks visitors to install the site as an app (Android/Chrome prompt, iPhone how-to hint) */
+(function setupInstallPrompt(){
+  try{
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    if(isStandalone) return;
+    const KEY = "fb_install_dismissed";
+    try{
+      if(Date.now() - Number(localStorage.getItem(KEY) || 0) < 14 * 24 * 60 * 60 * 1000) return;
+    }catch(e){}
+    let deferredPrompt = null;
+
+    function hideBanner(remember){
+      const el = document.getElementById("installBanner");
+      if(el) el.remove();
+      if(remember){ try{ localStorage.setItem(KEY, String(Date.now())); }catch(e){} }
+    }
+
+    function showBanner(isIOS){
+      if(document.getElementById("installBanner")) return;
+      const el = document.createElement("div");
+      el.id = "installBanner";
+      el.className = "install-banner";
+      el.innerHTML =
+        '<img class="install-logo" src="188B9B8B-400F-4770-BE60-A8D7E7F58A99.png" alt="">' +
+        '<div class="install-text"><b>Install Fine Booking</b><span>' +
+        (isIOS ? "Tap Share, then “Add to Home Screen”" : "Add it to your phone for quick access") +
+        '</span></div>' +
+        (isIOS ? "" : '<button type="button" class="install-go">Install</button>') +
+        '<button type="button" class="install-close" aria-label="Close">×</button>';
+      document.body.appendChild(el);
+      el.querySelector(".install-close").onclick = () => hideBanner(true);
+      const go = el.querySelector(".install-go");
+      if(go){
+        go.onclick = () => {
+          if(!deferredPrompt) return;
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then(choice => {
+            deferredPrompt = null;
+            hideBanner(choice.outcome !== "accepted");
+          });
+        };
+      }
+    }
+
+    window.addEventListener("beforeinstallprompt", e => {
+      e.preventDefault();
+      deferredPrompt = e;
+      setTimeout(() => showBanner(false), 4000);
+    });
+    window.addEventListener("appinstalled", () => hideBanner(false));
+    if(/iphone|ipad|ipod/i.test(navigator.userAgent)) setTimeout(() => showBanner(true), 4000);
+  }catch(err){
+    console.log("Install prompt skipped:", err);
   }
 })();
 
