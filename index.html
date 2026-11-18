@@ -1101,31 +1101,24 @@
 ============================================================ */
 (function setupAddToHomeScreen(){
   try{
-    const canvas = document.createElement("canvas");
-    canvas.width = 192; canvas.height = 192;
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#E0475A";
-    ctx.fillRect(0, 0, 192, 192);
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 92px Arial, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("FB", 96, 104);
-    const iconDataUrl = canvas.toDataURL("image/png");
+    const logoUrl = new URL("F7E7DAEF-5F48-451D-A307-8A3EBAB4E401.png", location.href).href;
 
     const appleIcon = document.createElement("link");
     appleIcon.rel = "apple-touch-icon";
-    appleIcon.href = iconDataUrl;
+    appleIcon.href = logoUrl;
     document.head.appendChild(appleIcon);
 
     const manifest = {
-      name: "Fine Booking",
-      short_name: "FineBooking",
-      start_url: ".",
+      name: "Fine Booking UG",
+      short_name: "Fine Booking",
+      start_url: location.origin + "/",
       display: "standalone",
       background_color: "#FFFFFF",
       theme_color: "#E0475A",
-      icons: [{ src: iconDataUrl, sizes: "192x192", type: "image/png" }]
+      icons: [
+        { src: logoUrl, sizes: "192x192", type: "image/png" },
+        { src: logoUrl, sizes: "512x512", type: "image/png" }
+      ]
     };
     const manifestBlob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
     const manifestLink = document.createElement("link");
