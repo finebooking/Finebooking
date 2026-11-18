@@ -3108,9 +3108,10 @@ async function prepareHostPhoto(file){
   return blob;
 }
 
-async function uploadHostPhoto(blob){
+async function uploadHostPhoto(blob, folder){
   const fd = new FormData();
   fd.append("photo", blob, "photo.jpg");
+  fd.append("folder", folder);
   const res = await fetch(UPLOAD_WORKER_URL, { method:"POST", body: fd });
   let data = {};
   try{ data = await res.json(); }catch(err){}
@@ -3147,6 +3148,9 @@ async function submitHostForm(e){
   const statusEl = document.getElementById("hostSubmitStatus");
   submitBtn.disabled = true;
 
+    const placeSlug = document.getElementById("hostPlaceName").value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "place";
+  const photoFolder = placeSlug + "-" + Math.random().toString(36).slice(2, 6);
+  
   // 1) Photos -> Cloudflare R2 through the Worker
   const photoUrls = [];
   let failed = 0;
@@ -3158,7 +3162,7 @@ async function submitHostForm(e){
       statusEl.textContent = "Uploading photo " + (i + 1) + " of " + hostPhotos.length + "...";
       try{
         const blob = await prepareHostPhoto(hostPhotos[i]);
-        photoUrls.push(await uploadHostPhoto(blob));
+        photoUrls.push(await uploadHostPhoto(blob, photoFolder));
       }catch(err){
         console.log("Host photo failed:", err);
         failed++;
@@ -3191,7 +3195,8 @@ async function submitHostForm(e){
     amenities: v("hostAmenities"),
     services: v("hostServices"),
     rooms: document.getElementById("hostRooms").value.trim(),
-    photos: photoUrls
+        photos: photoUrls,
+    photoFolder: photoFolder
   };
 
   const saved = await persistSubmission(sub);
