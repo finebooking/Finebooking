@@ -1,0 +1,14 @@
+{
+  "name": "Fine Booking UG",
+  "short_name": "Fine Booking",
+  "description": "Find hotels, Airbnbs, restaurants and cafes across Uganda.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#E0475A",
+  "icons": [
+    { "src": "/F7E7DAEF-5F48-451D-A307-8A3EBAB4E401.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/F7E7DAEF-5F48-451D-A307-8A3EBAB4E401.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
