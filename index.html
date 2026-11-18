@@ -135,9 +135,8 @@
     font-size:16px;font-family:inherit;color:var(--text);
   }
   .autocomplete-list{
-    position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;
-    border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);
-    z-index:20;overflow:hidden;display:none;
+    background:#fff;border:1px solid var(--border);border-radius:10px;
+    margin-top:6px;max-height:210px;overflow-y:auto;display:none;
   }
   .autocomplete-list div{padding:9px 12px;font-size:14px;cursor:pointer;}
   .autocomplete-list div:hover{background:var(--bg-soft);}
@@ -438,7 +437,7 @@
         <div class="search-row">
           <div class="field">
             <label>Location</label>
-            <input type="text" id="locationInput" placeholder="Search a place name or area (e.g. Super Bistro, Jinja)..." oninput="onLocationInput(this.value)" autocomplete="off">
+            <input type="text" id="locationInput" placeholder="Search a place name or area (e.g. Super Bistro, Jinja)..." oninput="onLocationInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();applyFilters();}" autocomplete="off">
             <div id="autocompleteList" class="autocomplete-list"></div>
           </div>
         </div>
@@ -1564,6 +1563,7 @@ function onPriceChange(){
 function applyFilters(){
   document.getElementById("searchPanel").classList.remove("open");
   renderListings();
+    document.getElementById("autocompleteList").style.display = "none";
 }
 
 function useMyLocation(){
