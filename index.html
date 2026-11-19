@@ -27,6 +27,7 @@
 <meta name="apple-mobile-web-app-title" content="Fine Booking">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://images.unsplash.com">
+<link rel="preconnect" href="https://pub-2495dd80d6a941a9b4977311542572d2.r2.dev">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&family=Pacifico&display=swap" rel="stylesheet">
 
 <!-- Google Analytics (GA4) / Firebase Analytics — same measurement ID powers both -->
@@ -1356,14 +1357,14 @@ function listingMinPrice(l){
   return l.price;
 }
 
-function cardHTML(l){
+function cardHTML(l, eager){
   const saved = getSaved().includes(l.id);
   const hasRooms = l.rooms && l.rooms.length > 0;
   const priceLabel = l.basic ? "Contact for details" : (hasRooms ? "From " + formatUGX(listingMinPrice(l)) : (l.price != null ? formatUGX(l.price) : "See price on their site"));
   return `
     <div class="card" onclick="openListing(${l.id})">
       <div class="card-img">
-        <img src="${l.images[0]}" alt="${l.name}" loading="lazy" decoding="async">
+        <img src="${l.images[0]}" alt="${l.name}" loading="${eager === true ? 'eager' : 'lazy'}" ${eager === true ? 'fetchpriority="high"' : ''} decoding="async">
         ${l.basic ? '<span class="badge">Location only</span>' : (l.guestFavorite ? '<span class="badge">Guest favorite</span>' : (l.verified ? '<span class="badge">Verified</span>' : ''))}
         <button class="save-btn ${saved ? 'saved' : ''}" onclick="toggleSave(${l.id}, this, event)">${saved ? '♥' : '♡'}</button>
       </div>
@@ -1438,8 +1439,8 @@ function renderListings(){
     const visible = items.slice(0, state.visibleCount || PAGE_SIZE);
     let gridHTML = "";
     let partnerGroup = 0;
-    visible.forEach((l, i) => {
-      gridHTML += cardHTML(l);
+    visible.forEach((l, i) => {    
+      gridHTML += cardHTML(l, i < 10);
       if(partners.length > 3 && (i + 1) % PAGE_SIZE === 0){
         gridHTML += partnerStripHTML(partnerGroup);
         partnerGroup++;
